@@ -1,6 +1,6 @@
 """
 통합 알림 관리자
-텔레그램 2개 동시 알림 발송 + 네이버클라우드 SMS
+텔레그램 2개 동시 알림 발송 + CoolSMS
 """
 
 import asyncio
@@ -8,10 +8,6 @@ from telegram import Bot
 from telegram.error import TelegramError
 from datetime import datetime
 import requests
-import time
-import hmac
-import hashlib
-import base64
 
 
 class NotificationManager:
@@ -56,63 +52,64 @@ class NotificationManager:
             self.bride_enabled = False
 
     def _init_sms(self):
-        """네이버 클라우드 SMS 초기화"""
+        """CoolSMS 초기화"""
         sms_config = self.config.get('sms', {})
-        self.sms_service_id = sms_config.get('service_id', '')
-        self.sms_access_key = sms_config.get('access_key', '')
-        self.sms_secret_key = sms_config.get('secret_key', '')
+        self.sms_api_key = sms_config.get('api_key', '')
+        self.sms_api_secret = sms_config.get('api_secret', '')
         self.sms_from_number = sms_config.get('from_number', '')
         self.sms_to_numbers = sms_config.get('to_numbers', [])  # 리스트
 
-    def _send_naver_sms(self, message):
-        """네이버 클라우드 SMS 전송"""
-        if not all([self.sms_service_id, self.sms_access_key, self.sms_secret_key,
+    def _send_coolsms(self, message):
+        """CoolSMS 전송"""
+        if not all([self.sms_api_key, self.sms_api_secret,
                     self.sms_from_number, self.sms_to_numbers]):
             print("SMS 설정이 완전하지 않습니다.")
             return False
 
         try:
-            # 타임스탬프 생성
-            timestamp = str(int(time.time() * 1000))
+            # CoolSMS API 엔드포인트
+            url = "https://api.coolsms.co.kr/messages/v4/send"
 
-            # URI
-            uri = f"/sms/v2/services/{self.sms_service_id}/messages"
-
-            # 서명 생성
-            sign_message = f"POST {uri}\n{timestamp}\n{self.sms_access_key}"
-            signature = base64.b64encode(
-                hmac.new(
-                    self.sms_secret_key.encode(),
-                    sign_message.encode(),
-                    hashlib.sha256
-                ).digest()
-            ).decode()
-
-            # API 요청
-            url = f"https://sens.apigw.ntruss.com{uri}"
+            # 헤더
             headers = {
-                'Content-Type': 'application/json; charset=utf-8',
-                'x-ncp-apigw-timestamp': timestamp,
-                'x-ncp-apigw-api-key-id': self.sms_access_key,
-                'x-ncp-apigw-signature-v2': signature
+                'Authorization': f'HMAC-SHA256 apiKey={self.sms_api_key}, date=auto, salt=auto, signature=auto',
+                'Content-Type': 'application/json'
             }
 
             # SMS 내용 (80자 제한)
             sms_content = message[:80] if len(message) > 80 else message
 
             # 여러 수신자에게 전송
-            messages = [{'to': number} for number in self.sms_to_numbers]
+            messages = []
+            for to_number in self.sms_to_numbers:
+                messages.append({
+                    'to': to_number.replace('-', ''),  # 하이픈 제거
+                    'from': self.sms_from_number.replace('-', ''),
+                    'text': sms_content
+                })
 
             data = {
-                'type': 'SMS',
-                'from': self.sms_from_number,
-                'content': sms_content,
-                'messages': messages
+                'message': {
+                    'to': [num.replace('-', '') for num in self.sms_to_numbers],
+                    'from': self.sms_from_number.replace('-', ''),
+                    'text': sms_content
+                }
             }
 
-            response = requests.post(url, headers=headers, json=data)
+            # API 키 인증 방식 (간단한 방식)
+            auth_headers = {
+                'Content-Type': 'application/json'
+            }
 
-            if response.status_code == 202:
+            # CoolSMS는 간단한 API 키 방식 사용
+            response = requests.post(
+                url,
+                headers=auth_headers,
+                json=data,
+                auth=(self.sms_api_key, self.sms_api_secret)
+            )
+
+            if response.status_code == 200:
                 print(f"SMS 전송 성공: {len(self.sms_to_numbers)}명")
                 return True
             else:
@@ -155,7 +152,7 @@ class NotificationManager:
 
         # SMS 전송 (활성화된 경우)
         if self.sms_enabled:
-            sms_success = self._send_naver_sms(message)
+            sms_success = self._send_coolsms(message)
             success &= sms_success
 
         return success

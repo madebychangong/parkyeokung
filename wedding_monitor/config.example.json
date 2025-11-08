@@ -40,9 +40,8 @@
   },
   "sms": {
     "enabled": false,
-    "service_id": "YOUR_NAVER_CLOUD_SERVICE_ID",
-    "access_key": "YOUR_ACCESS_KEY",
-    "secret_key": "YOUR_SECRET_KEY",
+    "api_key": "YOUR_COOLSMS_API_KEY",
+    "api_secret": "YOUR_COOLSMS_API_SECRET",
     "from_number": "010-1234-5678",
     "to_numbers": ["010-1234-5678", "010-9876-5432"]
   },

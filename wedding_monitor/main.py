@@ -236,29 +236,25 @@ class WeddingMonitorGUI:
             row=0, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5
         )
 
-        # 네이버 클라우드 설정
-        ttk.Label(sms_frame, text="Service ID:").grid(row=1, column=0, sticky=tk.W, padx=5)
-        self.sms_service_id = ttk.Entry(sms_frame, width=35)
-        self.sms_service_id.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        # CoolSMS 설정
+        ttk.Label(sms_frame, text="API Key:").grid(row=1, column=0, sticky=tk.W, padx=5)
+        self.sms_api_key = ttk.Entry(sms_frame, width=35)
+        self.sms_api_key.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
-        ttk.Label(sms_frame, text="Access Key:").grid(row=2, column=0, sticky=tk.W, padx=5)
-        self.sms_access_key = ttk.Entry(sms_frame, width=35)
-        self.sms_access_key.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        ttk.Label(sms_frame, text="API Secret:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        self.sms_api_secret = ttk.Entry(sms_frame, width=35, show="*")
+        self.sms_api_secret.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
-        ttk.Label(sms_frame, text="Secret Key:").grid(row=3, column=0, sticky=tk.W, padx=5)
-        self.sms_secret_key = ttk.Entry(sms_frame, width=35, show="*")
-        self.sms_secret_key.grid(row=3, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(sms_frame, text="발신번호:").grid(row=4, column=0, sticky=tk.W, padx=5)
+        ttk.Label(sms_frame, text="발신번호:").grid(row=3, column=0, sticky=tk.W, padx=5)
         self.sms_from_number = ttk.Entry(sms_frame, width=35)
-        self.sms_from_number.grid(row=4, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_from_number.grid(row=3, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
-        ttk.Label(sms_frame, text="수신번호 (쉼표 구분):").grid(row=5, column=0, sticky=tk.W, padx=5)
+        ttk.Label(sms_frame, text="수신번호 (쉼표 구분):").grid(row=4, column=0, sticky=tk.W, padx=5)
         self.sms_to_numbers = ttk.Entry(sms_frame, width=35)
-        self.sms_to_numbers.grid(row=5, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_to_numbers.grid(row=4, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
         ttk.Label(sms_frame, text="예: 010-1234-5678, 010-9876-5432", font=('', 8), foreground='gray').grid(
-            row=6, column=1, sticky=tk.W, padx=5
+            row=5, column=1, sticky=tk.W, padx=5
         )
 
         # ========== 제어 버튼 ==========
@@ -358,9 +354,8 @@ class WeddingMonitorGUI:
             },
             'sms': {
                 'enabled': False,
-                'service_id': '',
-                'access_key': '',
-                'secret_key': '',
+                'api_key': '',
+                'api_secret': '',
                 'from_number': '',
                 'to_numbers': []
             },
@@ -418,9 +413,8 @@ class WeddingMonitorGUI:
         # SMS 설정
         sms = self.config.get('sms', {})
         self.sms_enabled_var.set(sms.get('enabled', False))
-        self.sms_service_id.insert(0, sms.get('service_id', ''))
-        self.sms_access_key.insert(0, sms.get('access_key', ''))
-        self.sms_secret_key.insert(0, sms.get('secret_key', ''))
+        self.sms_api_key.insert(0, sms.get('api_key', ''))
+        self.sms_api_secret.insert(0, sms.get('api_secret', ''))
         self.sms_from_number.insert(0, sms.get('from_number', ''))
         to_numbers = sms.get('to_numbers', [])
         self.sms_to_numbers.insert(0, ', '.join(to_numbers))
@@ -472,9 +466,8 @@ class WeddingMonitorGUI:
             },
             'sms': {
                 'enabled': self.sms_enabled_var.get(),
-                'service_id': self.sms_service_id.get().strip(),
-                'access_key': self.sms_access_key.get().strip(),
-                'secret_key': self.sms_secret_key.get().strip(),
+                'api_key': self.sms_api_key.get().strip(),
+                'api_secret': self.sms_api_secret.get().strip(),
                 'from_number': self.sms_from_number.get().strip(),
                 'to_numbers': [num.strip() for num in self.sms_to_numbers.get().split(',') if num.strip()]
             },
