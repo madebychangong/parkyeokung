@@ -434,74 +434,70 @@ class WeddingChecker:
                 print(f"[DEBUG] ❌ {date_str}의 타겟 셀을 찾지 못함")
                 return None
 
-            # 해당 셀의 dayindex 가져오기
-            dayindex = target_cell.get_attribute('dayindex')
-
-            # 같은 dayindex를 가진 모든 td에서 일정 찾기
-            schedule_cells = driver.find_elements(By.CSS_SELECTOR, f"td[dayindex='{dayindex}']")
-
             date_status = {}
 
-            # 각 셀에서 title 속성이 있는 모든 링크 찾기
-            print(f"[DEBUG] 날짜 {date_str} 파싱 시작, dayindex={dayindex}, 활성화된 시간대: {time_slots}")
+            # 전체 캘린더에서 ._schedule div 찾기 (key 속성에 날짜 정보 포함)
+            print(f"[DEBUG] 날짜 {date_str} 파싱 시작, 활성화된 시간대: {time_slots}")
 
-            for cell in schedule_cells:
-                # ._schedule과 .info 둘 다 찾기 (구조가 다를 수 있음)
-                schedules = cell.find_elements(By.CSS_SELECTOR, "._schedule, .info")
-                print(f"[DEBUG] 셀에서 찾은 일정 개수 (._schedule + .info): {len(schedules)}")
+            # 목표 날짜를 YYYYMMDD 형식으로 변환 (예: "20260307")
+            target_date_key = f"{year:04d}{month:02d}{day:02d}"
+            print(f"[DEBUG] 찾을 날짜 키: {target_date_key}")
 
-                # 직접 a 태그도 찾기
-                links = cell.find_elements(By.CSS_SELECTOR, "a[title]")
-                print(f"[DEBUG] 셀에서 찾은 a[title] 링크 개수: {len(links)}")
+            # 모든 ._schedule div 찾기
+            all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
+            print(f"[DEBUG] 전체 캘린더의 ._schedule div 개수: {len(all_schedules)}")
 
-                # 모든 title 속성이 있는 링크 처리
-                all_links = []
-                for schedule in schedules:
-                    try:
-                        link = schedule.find_element(By.TAG_NAME, "a")
-                        all_links.append(link)
-                    except:
-                        pass
+            matched_schedules = []
+            for schedule_div in all_schedules:
+                try:
+                    key = schedule_div.get_attribute('key')
+                    if key and target_date_key in key:
+                        matched_schedules.append(schedule_div)
+                        print(f"[DEBUG] 매칭된 스케줄 발견: key={key[:80]}...")
+                except:
+                    continue
 
-                # 직접 찾은 링크도 추가
-                all_links.extend(links)
+            print(f"[DEBUG] {date_str}에 매칭된 스케줄 개수: {len(matched_schedules)}")
 
-                for link in all_links:
-                    try:
-                        title = link.get_attribute('title')  # 예: "11:00 완료" 또는 "17:00 가능"
+            # 매칭된 스케줄에서 시간과 상태 추출
+            for schedule_div in matched_schedules:
+                try:
+                    # div 내부의 a[title] 찾기
+                    link = schedule_div.find_element(By.CSS_SELECTOR, "a[title]")
+                    title = link.get_attribute('title')  # 예: "11:00 완료" 또는 "17:00 가능"
 
-                        print(f"[DEBUG] 파싱한 title: '{title}'")
+                    print(f"[DEBUG] 파싱한 title: '{title}'")
 
-                        if not title:
-                            print(f"[DEBUG] title이 비어있음, 스킵")
+                    if not title:
+                        print(f"[DEBUG] title이 비어있음, 스킵")
+                        continue
+
+                    # 시간과 상태 분리
+                    parts = title.split()
+                    if len(parts) >= 2:
+                        time_str = parts[0]  # "11:00", "14:00", "17:00"
+                        status = parts[1]    # "완료", "가능"
+
+                        print(f"[DEBUG] 파싱 결과 - 시간: '{time_str}', 상태: '{status}'")
+
+                        # 시간대가 활성화되어 있는지 확인
+                        if not time_slots.get(time_str, False):
+                            print(f"[DEBUG] 시간대 '{time_str}'가 비활성화되어 있거나 없음, 스킵")
                             continue
 
-                        # 시간과 상태 분리
-                        parts = title.split()
-                        if len(parts) >= 2:
-                            time_str = parts[0]  # "11:00", "14:00", "17:00"
-                            status = parts[1]    # "완료", "가능"
+                        # 중복 체크 후 추가
+                        if time_str not in date_status:
+                            # "완료" = 예약완료, "가능" = 예약가능
+                            date_status[time_str] = "완료" if status == "완료" else "가능"
+                            print(f"[DEBUG] date_status에 추가: {time_str} = {date_status[time_str]}")
+                        else:
+                            print(f"[DEBUG] {time_str}는 이미 추가됨, 스킵")
 
-                            print(f"[DEBUG] 파싱 결과 - 시간: '{time_str}', 상태: '{status}'")
-
-                            # 시간대가 활성화되어 있는지 확인
-                            if not time_slots.get(time_str, False):
-                                print(f"[DEBUG] 시간대 '{time_str}'가 비활성화되어 있거나 없음, 스킵")
-                                continue
-
-                            # 중복 체크 후 추가 (같은 링크를 여러 번 찾을 수 있음)
-                            if time_str not in date_status:
-                                # "완료" = 예약완료, "가능" = 예약가능
-                                date_status[time_str] = "완료" if status == "완료" else "가능"
-                                print(f"[DEBUG] date_status에 추가: {time_str} = {date_status[time_str]}")
-                            else:
-                                print(f"[DEBUG] {time_str}는 이미 추가됨, 스킵")
-
-                    except Exception as e:
-                        print(f"[DEBUG] 링크 파싱 중 오류: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        continue
+                except Exception as e:
+                    print(f"[DEBUG] 스케줄 파싱 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
 
             print(f"[DEBUG] 최종 date_status: {date_status}")
 

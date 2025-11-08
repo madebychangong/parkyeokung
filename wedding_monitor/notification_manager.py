@@ -145,8 +145,14 @@ class NotificationManager:
 
         # 텔레그램 전송
         if self.telegram_enabled:
-            telegram_success = asyncio.run(self._send_to_all_bots(message))
-            success &= telegram_success
+            # Create new event loop for each call to avoid "Event loop is closed" error
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                telegram_success = loop.run_until_complete(self._send_to_all_bots(message))
+                success &= telegram_success
+            finally:
+                loop.close()
         else:
             print("텔레그램 알림이 비활성화되어 있습니다.")
 
