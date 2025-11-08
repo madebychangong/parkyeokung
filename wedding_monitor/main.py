@@ -700,6 +700,14 @@ SOLAPI 연동 테스트 메시지입니다.
                     )
                     notifier.send_notification(success_msg, 'critical')
                     self.log_message(f"[자동예약 성공] {venue_name} {date_formatted} {time_label}")
+
+                    # 중복 예약 방지를 위해 프로그램 종료
+                    self.log_message("=" * 60)
+                    self.log_message("🎉 자동예약이 완료되었습니다!")
+                    self.log_message("중복 예약을 방지하기 위해 모니터링을 종료합니다.")
+                    self.log_message("=" * 60)
+                    self.monitoring = False
+                    self.update_status("자동예약 완료 - 모니터링 종료")
                 else:
                     failure_msg = notifier.format_auto_reservation_failure(
                         venue_name, date_formatted, time_label, result['message']
