@@ -11,9 +11,57 @@ import json
 import os
 import threading
 import time
+import sys
+import uuid
+import socket
 from wedding_checker import WeddingChecker
 from auto_reservation import AutoReservation, RESERVATION_INFO
 from notification_manager import NotificationManager
+
+
+def check_authorization():
+    """
+    허가된 MAC 주소/IP에서만 실행 가능하도록 체크
+    """
+    # 허용된 MAC 주소 목록 (하드코딩)
+    ALLOWED_MACS = [
+        # 여기에 허용할 MAC 주소를 추가하세요
+        # "00:00:00:00:00:00",  # 예시
+    ]
+
+    # 허용된 IP 주소 목록 (선택사항)
+    ALLOWED_IPS = [
+        # "192.168.0.100",  # 예시
+    ]
+
+    # MAC 주소 체크가 비활성화되어 있으면 통과
+    if not ALLOWED_MACS:
+        return True
+
+    # 현재 컴퓨터의 MAC 주소 가져오기
+    current_mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
+                            for elements in range(0,2*6,2)][::-1])
+
+    # 현재 컴퓨터의 IP 주소 가져오기
+    try:
+        current_ip = socket.gethostbyname(socket.gethostname())
+    except:
+        current_ip = "Unknown"
+
+    print(f"현재 MAC: {current_mac}")
+    print(f"현재 IP: {current_ip}")
+
+    # MAC 주소 체크
+    if ALLOWED_MACS and current_mac.lower() not in [mac.lower() for mac in ALLOWED_MACS]:
+        messagebox.showerror("인증 실패", "이 프로그램은 현재 컴퓨터에서 실행할 수 없습니다.")
+        return False
+
+    # IP 주소 체크 (선택사항)
+    if ALLOWED_IPS and current_ip not in ALLOWED_IPS:
+        messagebox.showerror("인증 실패", "이 프로그램은 현재 IP에서 실행할 수 없습니다.")
+        return False
+
+    return True
 
 
 class WeddingMonitorGUI:
@@ -767,6 +815,10 @@ SOLAPI 연동 테스트 메시지입니다.
 
 
 def main():
+    # 인증 체크
+    if not check_authorization():
+        sys.exit(1)
+
     root = tk.Tk()
     app = WeddingMonitorGUI(root)
     root.mainloop()
