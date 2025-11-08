@@ -22,7 +22,7 @@ class WeddingMonitorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("예식장 예약 모니터링 프로그램")
-        self.root.geometry("1000x650")
+        self.root.geometry("1000x600")
 
         self.config_file = "config.json"
         self.monitoring = False
@@ -47,7 +47,7 @@ class WeddingMonitorGUI:
         scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
 
         # 스크롤 가능한 프레임
-        self.scrollable_frame = ttk.Frame(canvas, padding="10")
+        self.scrollable_frame = ttk.Frame(canvas, padding="5")
 
         # 2열 레이아웃을 위한 column weight 설정
         self.scrollable_frame.columnconfigure(0, weight=1)
@@ -73,17 +73,17 @@ class WeddingMonitorGUI:
         """GUI 위젯 생성"""
 
         # ========== 날짜 모니터링 설정 (왼쪽 열) ==========
-        date_frame = ttk.LabelFrame(self.scrollable_frame, text="📅 모니터링 설정", padding="10")
-        date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), pady=5, padx=(0, 5))
+        date_frame = ttk.LabelFrame(self.scrollable_frame, text="📅 모니터링 설정", padding="5")
+        date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(0, 3))
 
         # 방법 1: 기간으로 모니터링
         self.use_range_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(date_frame, text="기간 설정", variable=self.use_range_var).grid(
-            row=0, column=0, sticky=tk.W, padx=5
+            row=0, column=0, sticky=tk.W, padx=3
         )
 
         date_row = ttk.Frame(date_frame)
-        date_row.grid(row=1, column=0, sticky=tk.W, padx=20)
+        date_row.grid(row=1, column=0, sticky=tk.W, padx=15, pady=1)
 
         ttk.Label(date_row, text="시작:").pack(side=tk.LEFT, padx=2)
         self.start_date = DateEntry(date_row, width=10, background='darkblue',
@@ -96,7 +96,7 @@ class WeddingMonitorGUI:
         self.end_date.pack(side=tk.LEFT, padx=2)
 
         weekday_row = ttk.Frame(date_frame)
-        weekday_row.grid(row=2, column=0, sticky=tk.W, padx=20, pady=2)
+        weekday_row.grid(row=2, column=0, sticky=tk.W, padx=15, pady=1)
 
         ttk.Label(weekday_row, text="요일:").pack(side=tk.LEFT, padx=2)
         self.weekday_var = tk.StringVar(value="both")
@@ -105,15 +105,15 @@ class WeddingMonitorGUI:
         ttk.Radiobutton(weekday_row, text="토/일", variable=self.weekday_var, value="both").pack(side=tk.LEFT)
 
         # 방법 2: 특정 날짜
-        ttk.Separator(date_frame, orient='horizontal').grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
+        ttk.Separator(date_frame, orient='horizontal').grid(row=3, column=0, sticky=(tk.W, tk.E), pady=3)
 
         self.use_specific_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(date_frame, text="특정 날짜", variable=self.use_specific_var).grid(
-            row=4, column=0, sticky=tk.W, padx=5
+            row=4, column=0, sticky=tk.W, padx=3
         )
 
         specific_row = ttk.Frame(date_frame)
-        specific_row.grid(row=5, column=0, sticky=(tk.W, tk.E), padx=20)
+        specific_row.grid(row=5, column=0, sticky=(tk.W, tk.E), padx=15, pady=1)
 
         self.specific_date_picker = DateEntry(specific_row, width=12, background='darkblue',
                                                foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
@@ -124,9 +124,9 @@ class WeddingMonitorGUI:
 
         # 특정 날짜 리스트
         list_frame = ttk.Frame(date_frame)
-        list_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), padx=20, pady=2)
+        list_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), padx=15, pady=1)
 
-        self.specific_dates_listbox = tk.Listbox(list_frame, height=4, width=40)
+        self.specific_dates_listbox = tk.Listbox(list_frame, height=3, width=40)
         self.specific_dates_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.specific_dates_listbox.yview)
@@ -134,12 +134,12 @@ class WeddingMonitorGUI:
         self.specific_dates_listbox.config(yscrollcommand=list_scroll.set)
 
         # ========== 시간대별 동작 설정 (왼쪽 열) ==========
-        time_frame = ttk.LabelFrame(self.scrollable_frame, text="⏰ 시간대별 설정", padding="10")
-        time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=5, padx=(0, 5))
+        time_frame = ttk.LabelFrame(self.scrollable_frame, text="⏰ 시간대별 설정", padding="5")
+        time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(0, 3))
 
         # 연구공원 (왼쪽)
         ttk.Label(time_frame, text="연구공원 웨딩홀", font=('', 9, 'bold')).grid(
-            row=0, column=0, columnspan=3, sticky=tk.W, pady=2
+            row=0, column=0, columnspan=3, sticky=tk.W, pady=1
         )
 
         self.rp_time_vars = {}
@@ -154,7 +154,7 @@ class WeddingMonitorGUI:
             self.rp_action_vars[time_key] = tk.StringVar(value="auto")
 
             ttk.Checkbutton(time_frame, text=time_label, variable=self.rp_time_vars[time_key]).grid(
-                row=i, column=0, sticky=tk.W, padx=5
+                row=i, column=0, sticky=tk.W, padx=3
             )
             ttk.Radiobutton(time_frame, text="자동예약", variable=self.rp_action_vars[time_key],
                             value="auto").grid(row=i, column=1, sticky=tk.W, padx=2)
@@ -163,12 +163,12 @@ class WeddingMonitorGUI:
 
         # 구분선
         ttk.Separator(time_frame, orient='vertical').grid(
-            row=0, column=3, rowspan=9, sticky=(tk.N, tk.S), padx=10
+            row=0, column=3, rowspan=9, sticky=(tk.N, tk.S), padx=5
         )
 
         # 이라운지 (오른쪽)
         ttk.Label(time_frame, text="이라운지 (알림만)", font=('', 9, 'bold')).grid(
-            row=0, column=4, columnspan=2, sticky=tk.W, pady=2
+            row=0, column=4, columnspan=2, sticky=tk.W, pady=1
         )
 
         self.el_time_vars = {}
@@ -177,12 +177,12 @@ class WeddingMonitorGUI:
         for i, (time_key, time_label) in enumerate(el_times, start=1):
             self.el_time_vars[time_key] = tk.BooleanVar(value=True)
             ttk.Checkbutton(time_frame, text=time_label, variable=self.el_time_vars[time_key]).grid(
-                row=i, column=4, columnspan=2, sticky=tk.W, padx=5
+                row=i, column=4, columnspan=2, sticky=tk.W, padx=3
             )
 
         # ========== 자동 예약 정보 (오른쪽 열) ==========
-        auto_frame = ttk.LabelFrame(self.scrollable_frame, text="📝 예약 정보", padding="10")
-        auto_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N), pady=5, padx=(5, 0))
+        auto_frame = ttk.LabelFrame(self.scrollable_frame, text="📝 예약 정보", padding="5")
+        auto_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         info_text = f"{RESERVATION_INFO['groom_name']} ({RESERVATION_INFO['groom_tel']}), {RESERVATION_INFO['bride_name']} ({RESERVATION_INFO['bride_tel']})\n예상인원: {RESERVATION_INFO['expected_people']}   💡 수정: auto_reservation.py"
 
@@ -191,23 +191,23 @@ class WeddingMonitorGUI:
         )
 
         # ========== 알림 설정 (오른쪽 열) ==========
-        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding="10")
-        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=5, padx=(5, 0))
+        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding="5")
+        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         # 텔레그램 활성화 체크박스
         self.telegram_enabled_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(notif_frame, text="텔레그램 알림 사용", variable=self.telegram_enabled_var).grid(
-            row=0, column=0, sticky=tk.W, padx=5, pady=5
+            row=0, column=0, sticky=tk.W, padx=3, pady=2
         )
 
         # 텔레그램 테스트 버튼
         ttk.Button(notif_frame, text="📱 테스트 발송", command=self.test_telegram, width=15).grid(
-            row=0, column=1, padx=5, pady=5, sticky=tk.W
+            row=0, column=1, padx=3, pady=2, sticky=tk.W
         )
 
         # 확인 주기
         interval_row = ttk.Frame(notif_frame)
-        interval_row.grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        interval_row.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=3, pady=2)
 
         ttk.Label(interval_row, text="확인 주기:").pack(side=tk.LEFT, padx=2)
         self.check_interval = ttk.Spinbox(interval_row, from_=1, to=1440, width=5)
@@ -216,32 +216,32 @@ class WeddingMonitorGUI:
         ttk.Label(interval_row, text="분마다").pack(side=tk.LEFT, padx=2)
 
         # ========== SMS 설정 (오른쪽 열) ==========
-        sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정 (선택사항)", padding="10")
-        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=5, padx=(5, 0))
+        sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정", padding="5")
+        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         # SMS 활성화 체크박스
         self.sms_enabled_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(sms_frame, text="SMS 알림 사용", variable=self.sms_enabled_var).grid(
-            row=0, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5
+            row=0, column=0, columnspan=2, sticky=tk.W, padx=3, pady=2
         )
 
         # 수신번호 입력
-        ttk.Label(sms_frame, text="수신번호 1:").grid(row=1, column=0, sticky=tk.W, padx=5)
+        ttk.Label(sms_frame, text="수신번호 1:").grid(row=1, column=0, sticky=tk.W, padx=3)
         self.sms_to_number1 = ttk.Entry(sms_frame, width=35)
-        self.sms_to_number1.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_to_number1.grid(row=1, column=1, padx=3, pady=1, sticky=(tk.W, tk.E))
 
-        ttk.Label(sms_frame, text="수신번호 2:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        ttk.Label(sms_frame, text="수신번호 2:").grid(row=2, column=0, sticky=tk.W, padx=3)
         self.sms_to_number2 = ttk.Entry(sms_frame, width=35)
-        self.sms_to_number2.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_to_number2.grid(row=2, column=1, padx=3, pady=1, sticky=(tk.W, tk.E))
 
         # SMS 테스트 버튼
         ttk.Button(sms_frame, text="📱 테스트 발송", command=self.test_sms, width=15).grid(
-            row=3, column=1, padx=5, pady=10, sticky=tk.E
+            row=3, column=1, padx=3, pady=5, sticky=tk.E
         )
 
         # ========== 제어 버튼 (하단 전체) ==========
         control_frame = ttk.Frame(self.scrollable_frame)
-        control_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        control_frame.grid(row=3, column=0, columnspan=2, pady=5)
 
         self.start_btn = ttk.Button(control_frame, text="시작하기", command=self.start_monitoring, width=12)
         self.start_btn.grid(row=0, column=0, padx=5)
@@ -253,8 +253,8 @@ class WeddingMonitorGUI:
         ttk.Button(control_frame, text="설정 저장", command=self.save_config, width=12).grid(row=0, column=2, padx=5)
 
         # ========== 모니터링 상태 (하단 전체) ==========
-        status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding="10")
-        status_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding="5")
+        status_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
 
         self.status_label = ttk.Label(status_frame, text="상태: 대기중")
         self.status_label.grid(row=0, column=0, sticky=tk.W)
@@ -266,10 +266,10 @@ class WeddingMonitorGUI:
         self.next_check_label.grid(row=2, column=0, sticky=tk.W)
 
         # ========== 알림 기록 (하단 전체) ==========
-        log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding="10")
-        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding="5")
+        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, width=90)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, width=90)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
     def add_specific_date(self):
