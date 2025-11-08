@@ -135,7 +135,7 @@ class WeddingMonitorGUI:
 
         # ========== 시간대별 동작 설정 (왼쪽 열) ==========
         time_frame = ttk.LabelFrame(self.scrollable_frame, text="⏰ 시간대별 설정", padding=(5, 0))
-        time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(0, 3))
+        time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(0, 3))
 
         # 연구공원 (왼쪽)
         ttk.Label(time_frame, text="연구공원 웨딩홀", font=('', 9, 'bold')).grid(
@@ -192,7 +192,7 @@ class WeddingMonitorGUI:
 
         # ========== 알림 설정 (오른쪽 열) ==========
         notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding=(5, 0))
-        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
+        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(3, 0))
 
         # 텔레그램 활성화 체크박스
         self.telegram_enabled_var = tk.BooleanVar(value=True)
@@ -217,7 +217,7 @@ class WeddingMonitorGUI:
 
         # ========== SMS 설정 (오른쪽 열) ==========
         sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정", padding=(5, 0))
-        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
+        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(3, 0))
 
         # SMS 활성화 체크박스
         self.sms_enabled_var = tk.BooleanVar(value=False)
@@ -254,7 +254,7 @@ class WeddingMonitorGUI:
 
         # ========== 모니터링 상태 (하단 전체) ==========
         status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding=(5, 0))
-        status_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=0)
+        status_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(-5, 0))
 
         self.status_label = ttk.Label(status_frame, text="상태: 대기중")
         self.status_label.grid(row=0, column=0, sticky=tk.W)
@@ -267,7 +267,7 @@ class WeddingMonitorGUI:
 
         # ========== 알림 기록 (하단 전체) ==========
         log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding=(5, 0))
-        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=0)
+        log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(-5, 0))
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=8, width=90)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
