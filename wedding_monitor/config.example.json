@@ -1,0 +1,38 @@
+{
+  "date_mode": {
+    "use_range": true,
+    "range": {
+      "start": "2025-11-01",
+      "end": "2026-06-30",
+      "weekdays": ["토", "일"]
+    },
+    "use_specific": true,
+    "specific_dates": [
+      "2025-11-29",
+      "2026-03-04",
+      "2026-06-08"
+    ]
+  },
+  "time_settings": {
+    "research_park": {
+      "11:00": {"enabled": true, "auto_reserve": true},
+      "13:00": {"enabled": true, "auto_reserve": true},
+      "15:00": {"enabled": true, "auto_reserve": true},
+      "17:00": {"enabled": true, "auto_reserve": false},
+      "18:30": {"enabled": false, "auto_reserve": false}
+    },
+    "elounge": {
+      "11:00": {"enabled": true},
+      "14:00": {"enabled": true},
+      "17:00": {"enabled": true}
+    }
+  },
+  "telegram": {
+    "enabled": true
+  },
+  "sms": {
+    "enabled": false,
+    "to_numbers": ["010-3096-0329", "010-3895-8291"]
+  },
+  "check_interval_minutes": 5
+}
