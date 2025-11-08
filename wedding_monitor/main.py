@@ -105,6 +105,25 @@ class WeddingMonitorGUI:
         os.makedirs(app_dir, exist_ok=True)
         return os.path.join(app_dir, 'config.json')
 
+    @staticmethod
+    def _reset_wedding_data():
+        """모니터링 시작 시 wedding_data.json 리셋"""
+        if os.name == 'nt':  # Windows
+            base_dir = os.environ.get('APPDATA', os.path.expanduser('~'))
+            app_dir = os.path.join(base_dir, 'WeddingMonitor')
+        else:  # Linux, Mac
+            app_dir = os.path.expanduser('~/.wedding_monitor')
+
+        data_file = os.path.join(app_dir, 'wedding_data.json')
+
+        # 파일이 존재하면 삭제
+        if os.path.exists(data_file):
+            try:
+                os.remove(data_file)
+                print(f"[DEBUG] wedding_data.json 리셋 완료")
+            except Exception as e:
+                print(f"[DEBUG] wedding_data.json 삭제 실패: {e}")
+
     def setup_styles(self):
         """ttk 스타일 설정"""
         style = ttk.Style()
@@ -676,6 +695,9 @@ SOLAPI 연동 테스트 메시지입니다.
 
     def monitoring_loop(self):
         """모니터링 루프"""
+        # 모니터링 시작 시 이전 데이터 리셋 (예약 상태가 바뀔 수 있으므로)
+        self._reset_wedding_data()
+
         checker = WeddingChecker()
         notifier = NotificationManager(self.config)
         auto_reserve = AutoReservation()
