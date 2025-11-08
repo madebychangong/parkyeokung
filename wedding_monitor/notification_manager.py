@@ -52,11 +52,14 @@ class NotificationManager:
             self.bride_enabled = False
 
     def _init_sms(self):
-        """CoolSMS 초기화"""
+        """CoolSMS 초기화 (API 정보 하드코딩)"""
+        # 하드코딩된 API 정보
+        self.sms_api_key = 'NCSCPNC7FTNKV0SZ'
+        self.sms_api_secret = 'CWEIJDIRZAXL76F2NG879T8J9P6SCNGM'
+        self.sms_from_number = '010-6454-5181'
+
+        # 수신번호만 config에서 로드
         sms_config = self.config.get('sms', {})
-        self.sms_api_key = sms_config.get('api_key', '')
-        self.sms_api_secret = sms_config.get('api_secret', '')
-        self.sms_from_number = sms_config.get('from_number', '')
         self.sms_to_numbers = sms_config.get('to_numbers', [])  # 리스트
 
     def _send_coolsms(self, message):

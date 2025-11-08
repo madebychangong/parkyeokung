@@ -40,9 +40,6 @@
   },
   "sms": {
     "enabled": false,
-    "api_key": "YOUR_COOLSMS_API_KEY",
-    "api_secret": "YOUR_COOLSMS_API_SECRET",
-    "from_number": "010-6454-5181",
     "to_numbers": ["010-3096-0329", "010-3895-8291"]
   },
   "check_interval_minutes": 5

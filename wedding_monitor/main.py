@@ -236,27 +236,14 @@ class WeddingMonitorGUI:
             row=0, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5
         )
 
-        # CoolSMS 설정
-        ttk.Label(sms_frame, text="API Key:").grid(row=1, column=0, sticky=tk.W, padx=5)
-        self.sms_api_key = ttk.Entry(sms_frame, width=35)
-        self.sms_api_key.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(sms_frame, text="API Secret:").grid(row=2, column=0, sticky=tk.W, padx=5)
-        self.sms_api_secret = ttk.Entry(sms_frame, width=35, show="*")
-        self.sms_api_secret.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(sms_frame, text="발신번호:").grid(row=3, column=0, sticky=tk.W, padx=5)
-        self.sms_from_number = ttk.Entry(sms_frame, width=35)
-        self.sms_from_number.insert(0, "010-6454-5181")
-        self.sms_from_number.grid(row=3, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(sms_frame, text="수신번호 1:").grid(row=4, column=0, sticky=tk.W, padx=5)
+        # 수신번호 입력
+        ttk.Label(sms_frame, text="수신번호 1:").grid(row=1, column=0, sticky=tk.W, padx=5)
         self.sms_to_number1 = ttk.Entry(sms_frame, width=35)
-        self.sms_to_number1.grid(row=4, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_to_number1.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
-        ttk.Label(sms_frame, text="수신번호 2:").grid(row=5, column=0, sticky=tk.W, padx=5)
+        ttk.Label(sms_frame, text="수신번호 2:").grid(row=2, column=0, sticky=tk.W, padx=5)
         self.sms_to_number2 = ttk.Entry(sms_frame, width=35)
-        self.sms_to_number2.grid(row=5, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+        self.sms_to_number2.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
         # ========== 제어 버튼 ==========
         control_frame = ttk.Frame(self.scrollable_frame)
@@ -355,9 +342,6 @@ class WeddingMonitorGUI:
             },
             'sms': {
                 'enabled': False,
-                'api_key': '',
-                'api_secret': '',
-                'from_number': '010-6454-5181',
                 'to_numbers': []
             },
             'check_interval_minutes': 5
@@ -414,14 +398,6 @@ class WeddingMonitorGUI:
         # SMS 설정
         sms = self.config.get('sms', {})
         self.sms_enabled_var.set(sms.get('enabled', False))
-        self.sms_api_key.insert(0, sms.get('api_key', ''))
-        self.sms_api_secret.insert(0, sms.get('api_secret', ''))
-
-        # 발신번호는 기본값이 이미 설정되어 있으므로 config에 있으면 덮어쓰기
-        from_number = sms.get('from_number', '')
-        if from_number:
-            self.sms_from_number.delete(0, tk.END)
-            self.sms_from_number.insert(0, from_number)
 
         # 수신번호 2개
         to_numbers = sms.get('to_numbers', [])
@@ -477,9 +453,6 @@ class WeddingMonitorGUI:
             },
             'sms': {
                 'enabled': self.sms_enabled_var.get(),
-                'api_key': self.sms_api_key.get().strip(),
-                'api_secret': self.sms_api_secret.get().strip(),
-                'from_number': self.sms_from_number.get().strip(),
                 'to_numbers': [num for num in [
                     self.sms_to_number1.get().strip(),
                     self.sms_to_number2.get().strip()
