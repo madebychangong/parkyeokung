@@ -216,9 +216,40 @@ class AutoReservation:
                     print(f"기타 문의 입력: {self.info['etc_message']}")
 
                 # 개인정보 동의 체크박스
-                agree_checkbox = driver.find_element(By.ID, "term_agree")
-                driver.execute_script("arguments[0].click();", agree_checkbox)
-                print("개인정보 동의 체크")
+                # 여러 방법 시도
+                agree_checked = False
+
+                # 방법 1: id="term_agree"로 찾기
+                try:
+                    agree_checkbox = driver.find_element(By.ID, "term_agree")
+                    driver.execute_script("arguments[0].click();", agree_checkbox)
+                    print("개인정보 동의 체크 (ID)")
+                    agree_checked = True
+                except:
+                    pass
+
+                # 방법 2: label 클릭
+                if not agree_checked:
+                    try:
+                        agree_label = driver.find_element(By.CSS_SELECTOR, "label[for='term_agree']")
+                        agree_label.click()
+                        print("개인정보 동의 체크 (Label)")
+                        agree_checked = True
+                    except:
+                        pass
+
+                # 방법 3: name="agree"로 찾기
+                if not agree_checked:
+                    try:
+                        agree_checkbox = driver.find_element(By.NAME, "agree")
+                        driver.execute_script("arguments[0].click();", agree_checkbox)
+                        print("개인정보 동의 체크 (Name)")
+                        agree_checked = True
+                    except:
+                        pass
+
+                if not agree_checked:
+                    print("경고: 개인정보 동의 체크 실패")
 
                 time.sleep(1)
 

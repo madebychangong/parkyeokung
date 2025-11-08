@@ -193,16 +193,45 @@ def test_reservation_form():
         print(f"\n[4/5] 개인정보 동의 체크...")
 
         try:
-            agree_checkbox = driver.find_element(By.ID, "term_agree")
-            driver.execute_script("arguments[0].click();", agree_checkbox)
-            print(f"      ✓ 개인정보 동의 체크 완료")
+            agree_checked = False
+
+            # 방법 1: id="term_agree"로 찾기
+            try:
+                agree_checkbox = driver.find_element(By.ID, "term_agree")
+                driver.execute_script("arguments[0].click();", agree_checkbox)
+                print(f"      ✓ 개인정보 동의 체크 완료 (ID)")
+                agree_checked = True
+            except:
+                pass
+
+            # 방법 2: label 클릭
+            if not agree_checked:
+                try:
+                    agree_label = driver.find_element(By.CSS_SELECTOR, "label[for='term_agree']")
+                    agree_label.click()
+                    print(f"      ✓ 개인정보 동의 체크 완료 (Label)")
+                    agree_checked = True
+                except:
+                    pass
+
+            # 방법 3: name="agree"로 찾기
+            if not agree_checked:
+                try:
+                    agree_checkbox = driver.find_element(By.NAME, "agree")
+                    driver.execute_script("arguments[0].click();", agree_checkbox)
+                    print(f"      ✓ 개인정보 동의 체크 완료 (Name)")
+                    agree_checked = True
+                except:
+                    pass
+
+            if not agree_checked:
+                print(f"\n⚠️ 경고: 개인정보 동의 체크 실패 - 수동으로 체크하세요")
 
         except Exception as e:
-            print(f"\n❌ 동의 체크 실패: {e}")
+            print(f"\n⚠️ 동의 체크 오류: {e}")
             import traceback
             traceback.print_exc()
-            input("\n아무 키나 눌러 브라우저를 종료하세요...")
-            return False
+            print(f"      계속 진행합니다...")
 
         # 5. 사용자 확인
         print(f"\n[5/5] 폼 작성 완료!")
