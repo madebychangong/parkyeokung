@@ -9,7 +9,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoAlertPresentException
 from webdriver_manager.chrome import ChromeDriverManager
+from datetime import datetime
 import time
 
 
@@ -78,27 +80,75 @@ class AutoReservation:
             year, month = date_parts[0], date_parts[1]
             url = f"https://www.snuwedding.co.kr/snu/reservation?year={year}&month={month}"
 
+            print(f"페이지 접속: {url}")
             driver.get(url)
             time.sleep(2)
 
+            # Alert 팝업 처리 (예약 오픈 전 구간 등)
+            try:
+                alert = driver.switch_to.alert
+                alert_text = alert.text
+                print(f"Alert 감지: {alert_text}")
+                alert.accept()
+
+                # "아직 오픈하지 않은 구간" 메시지면 중단
+                if "오픈하지 않은" in alert_text or "아직" in alert_text:
+                    return {
+                        'success': False,
+                        'message': f'예약 오픈 전: {alert_text}'
+                    }
+
+            except NoAlertPresentException:
+                # Alert가 없으면 정상 진행
+                pass
+
             # 2. 예약 가능 버튼 클릭
-            # javascript:send_chk(4,'2026-11-01','일');
-            weekday = self._get_weekday_kr(date)
-            time_label = self._get_time_label(time_slot)
+            # 날짜에서 일(day) 추출
+            date_obj = datetime.strptime(date, '%Y-%m-%d')
+            day = date_obj.day
+
+            # 시간대 인덱스 매핑
+            time_slot_index = {
+                '11:00': 0,
+                '13:00': 1,
+                '15:00': 2,
+                '17:00': 3,
+                '18:30': 4
+            }
+            time_index = time_slot_index.get(time_slot)
+
+            if time_index is None:
+                return {
+                    'success': False,
+                    'message': f'잘못된 시간대: {time_slot}'
+                }
 
             # 예약 가능 링크 찾기
             try:
-                # class="avail" 인 링크 중 해당 날짜와 시간이 맞는 것 찾기
-                avail_links = driver.find_elements(
-                    By.CSS_SELECTOR,
-                    f"a.avail[href*='{date}']"
-                )
+                # reservation-list__record에서 해당 날짜 찾기
+                records = driver.find_elements(By.CSS_SELECTOR, "div.reservation-list__record")
 
                 target_link = None
-                for link in avail_links:
-                    if time_label in link.text:
-                        target_link = link
-                        break
+                for record in records:
+                    # 첫 번째 div에서 날짜 추출
+                    day_div = record.find_element(By.CSS_SELECTOR, "div")
+                    day_text = day_div.text.strip()  # 예: "09 (일)"
+
+                    # 날짜 숫자만 추출
+                    day_num = int(day_text.split()[0])
+
+                    if day_num == day:
+                        # 해당 날짜의 a 태그들 가져오기
+                        links = record.find_elements(By.TAG_NAME, "a")
+
+                        if len(links) > time_index:
+                            link = links[time_index]
+
+                            # class="avail" 확인
+                            link_classes = link.get_attribute('class')
+                            if 'avail' in (link_classes or ''):
+                                target_link = link
+                                break
 
                 if not target_link:
                     return {
@@ -107,8 +157,9 @@ class AutoReservation:
                     }
 
                 # 버튼 클릭
+                print(f"예약 가능 버튼 클릭: {date} {time_slot}")
                 target_link.click()
-                time.sleep(1)
+                time.sleep(2)
 
             except Exception as e:
                 return {
@@ -118,42 +169,62 @@ class AutoReservation:
 
             # 3. 예약 폼 입력
             try:
+                # 예상 인원 (라디오 버튼)
+                # 250~300명, 300~400명, 400명 이상
+                person_radio = driver.find_element(
+                    By.CSS_SELECTOR,
+                    f"input[name='person'][value='{self.info['expected_people']}']"
+                )
+                driver.execute_script("arguments[0].click();", person_radio)
+                print(f"예상 인원 선택: {self.info['expected_people']}")
+
                 # 신랑 정보
                 driver.find_element(By.NAME, "name").send_keys(self.info['groom_name'])
-                driver.find_element(By.NAME, "tel").send_keys(self.info['groom_tel'])
-                driver.find_element(By.NAME, "email").send_keys(self.info['groom_email'])
+                print(f"신랑 이름 입력: {self.info['groom_name']}")
 
                 # 신랑 구분 (라디오 버튼)
                 groom_radio = driver.find_element(By.CSS_SELECTOR, "input[name='type'][value='신랑']")
                 driver.execute_script("arguments[0].click();", groom_radio)
 
-                # 신부 정보
+                # 신랑 연락처
+                driver.find_element(By.NAME, "tel").send_keys(self.info['groom_tel'])
+                print(f"신랑 연락처 입력: {self.info['groom_tel']}")
+
+                # 예비 배우자(신부) 성명
                 driver.find_element(By.NAME, "spouse_name").send_keys(self.info['bride_name'])
-                driver.find_element(By.NAME, "spouse_tel").send_keys(self.info['bride_tel'])
-                driver.find_element(By.NAME, "spouse_email").send_keys(self.info['bride_email'])
+                print(f"신부 이름 입력: {self.info['bride_name']}")
 
                 # 신부 구분 (라디오 버튼)
                 bride_radio = driver.find_element(By.CSS_SELECTOR, "input[name='spouse_type'][value='신부']")
                 driver.execute_script("arguments[0].click();", bride_radio)
 
-                # 예상 인원 (셀렉트 박스)
-                people_select = driver.find_element(By.NAME, "person")
-                for option in people_select.find_elements(By.TAG_NAME, "option"):
-                    if self.info['expected_people'] in option.text:
-                        option.click()
-                        break
+                # 예비 배우자(신부) 연락처
+                driver.find_element(By.NAME, "spouse_tel").send_keys(self.info['bride_tel'])
+                print(f"신부 연락처 입력: {self.info['bride_tel']}")
+
+                # 신랑 이메일
+                driver.find_element(By.NAME, "email").send_keys(self.info['groom_email'])
+                print(f"신랑 이메일 입력: {self.info['groom_email']}")
+
+                # 신부 이메일
+                driver.find_element(By.NAME, "spouse_email").send_keys(self.info['bride_email'])
+                print(f"신부 이메일 입력: {self.info['bride_email']}")
 
                 # 기타 문의사항
                 if self.info.get('etc_message'):
                     driver.find_element(By.NAME, "content").send_keys(self.info['etc_message'])
+                    print(f"기타 문의 입력: {self.info['etc_message']}")
 
                 # 개인정보 동의 체크박스
-                agree_checkbox = driver.find_element(By.ID, "agree")
+                agree_checkbox = driver.find_element(By.ID, "term_agree")
                 driver.execute_script("arguments[0].click();", agree_checkbox)
+                print("개인정보 동의 체크")
 
                 time.sleep(1)
 
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 return {
                     'success': False,
                     'message': f'폼 입력 실패: {str(e)}'
@@ -161,20 +232,44 @@ class AutoReservation:
 
             # 4. 예약 신청 제출
             try:
-                # javascript:send_frm() 실행
-                driver.execute_script("send_frm();")
-                time.sleep(2)
+                # 예약 신청 버튼 클릭
+                reserve_btn = driver.find_element(By.ID, "reserve-btn")
+                print("예약 신청 버튼 클릭")
+                reserve_btn.click()
+                time.sleep(3)
 
-                # 성공/실패 확인
-                # alert 또는 페이지 변경 확인
-                # 실제 사이트 구조에 따라 수정 필요
+                # Alert 확인 (성공/실패 메시지)
+                try:
+                    alert = driver.switch_to.alert
+                    alert_text = alert.text
+                    print(f"Alert 메시지: {alert_text}")
+                    alert.accept()
 
-                return {
-                    'success': True,
-                    'message': '예약 신청이 완료되었습니다. 직원 확인 후 연락 예정입니다.'
-                }
+                    # 성공 메시지인지 확인
+                    if "완료" in alert_text or "신청" in alert_text:
+                        return {
+                            'success': True,
+                            'message': f'예약 신청 완료: {alert_text}'
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'message': f'예약 신청 실패: {alert_text}'
+                        }
+
+                except NoAlertPresentException:
+                    # Alert가 없으면 페이지 변경 확인
+                    print("Alert 없음, 페이지 변경 확인")
+                    time.sleep(1)
+
+                    return {
+                        'success': True,
+                        'message': '예약 신청이 제출되었습니다. 담당자 확인 후 연락 예정입니다.'
+                    }
 
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 return {
                     'success': False,
                     'message': f'예약 제출 실패: {str(e)}'
