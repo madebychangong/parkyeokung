@@ -340,11 +340,19 @@ class WeddingChecker:
                     print(f"[DEBUG] 현재 년월 표시를 찾을 수 없음")
                     break
 
+                # "오늘" 같은 불필요한 텍스트 제거
+                current_year_month_text = current_year_month_text.replace('오늘', '').replace('Today', '').strip()
+
                 print(f"[DEBUG] 현재 표시된 년월: {current_year_month_text}")
 
-                # "2025년 5월" 형식에서 년월 추출
+                # "2025년 5월" 또는 "2025.05" 형식에서 년월 추출
                 import re
+                # 형식 1: "2025년 11월"
                 match = re.search(r'(\d{4})년\s*(\d{1,2})월', current_year_month_text)
+                if not match:
+                    # 형식 2: "2025.11"
+                    match = re.search(r'(\d{4})[./\-](\d{1,2})', current_year_month_text)
+
                 if not match:
                     print(f"[DEBUG] 년월 파싱 실패: {current_year_month_text}")
                     break
