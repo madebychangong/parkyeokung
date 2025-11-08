@@ -219,7 +219,7 @@ class WeddingChecker:
 
     def check_elounge(self, target_dates, time_slots):
         """
-        서울대 이라운지 확인
+        서울대 이라운지 확인 (네이버 캘린더)
 
         Args:
             target_dates: 확인할 날짜 리스트
@@ -232,40 +232,142 @@ class WeddingChecker:
 
         result = {}
 
-        # TODO: 실제 이라운지 캘린더 URL 필요
-        # 현재는 더미 데이터 반환
-        # 실제 구현 시 네이버 캘린더 크롤링 로직 추가
+        # Selenium 설정
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+
+        driver = None
 
         try:
-            # 네이버 공개 캘린더 크롤링
-            # URL은 실제 이라운지 캘린더 URL로 변경 필요
-            calendar_url = "NAVER_CALENDAR_URL_HERE"
+            # ChromeDriver 자동 설치 및 실행
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            # requests로 HTML 가져오기
-            # response = requests.get(calendar_url)
-            # soup = BeautifulSoup(response.text, 'html.parser')
-
-            # 날짜별로 확인
+            # 날짜를 년월별로 그룹화
+            dates_by_month = {}
             for date_str in target_dates:
-                date_status = {}
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                year_month = f"{date_obj.year}-{date_obj.month:02d}"
+                if year_month not in dates_by_month:
+                    dates_by_month[year_month] = []
+                dates_by_month[year_month].append(date_str)
 
-                # 시간대별 확인
-                for time_key in ['11:00', '14:00', '17:00']:
-                    if not time_slots.get(time_key, False):
-                        continue
+            # 네이버 캘린더 URL
+            calendar_url = "https://calendar.naver.com/publicCalendar?publishedKey=d435b7f03ff45dc2504e74adc1938d28665aa33926a644bf2117b77a87e13d72028903d0e9f0ecae"
 
-                    # TODO: 실제 캘린더에서 파싱
-                    # title 속성에서 "완료" 또는 "가능" 찾기
-                    # 현재는 더미 데이터
-                    date_status[time_key] = "완료"  # or "가능"
+            # 월별로 페이지 로드
+            for year_month, dates in dates_by_month.items():
+                try:
+                    year, month = year_month.split('-')
 
-                if date_status:
-                    result[date_str] = date_status
+                    print(f"이라운지 캘린더 접속: {year}년 {month}월")
+                    driver.get(calendar_url)
+                    time.sleep(2)
+
+                    # 해당 년월로 이동 (필요시)
+                    # 현재 달력이 자동으로 현재 월을 보여주므로, 다른 월이면 이동 필요
+                    # 여기서는 단순화를 위해 현재 표시된 달력 파싱
+
+                    # 해당 월의 모든 날짜 파싱
+                    for date_str in dates:
+                        date_status = self._parse_elounge_date(driver, date_str, time_slots)
+                        if date_status:
+                            result[date_str] = date_status
+                            print(f"{date_str}: {date_status}")
+
+                except Exception as e:
+                    print(f"월 {year_month} 처리 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
 
         except Exception as e:
             print(f"이라운지 크롤링 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
+        finally:
+            if driver:
+                driver.quit()
 
         return result
+
+    def _parse_elounge_date(self, driver, date_str, time_slots):
+        """이라운지 특정 날짜의 예약 상황 파싱"""
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            day = date_obj.day
+
+            # 모든 날짜 셀 찾기
+            date_cells = driver.find_elements(By.CSS_SELECTOR, "td[dayindex]")
+
+            target_cell = None
+            for cell in date_cells:
+                # 날짜 텍스트 찾기
+                try:
+                    day_strong = cell.find_element(By.CSS_SELECTOR, "strong._move_day_view")
+                    day_text = day_strong.text.strip()
+                    day_num = int(day_text)
+
+                    if day_num == day:
+                        # disable 클래스가 없는지 확인 (다른 월 날짜 제외)
+                        cell_classes = cell.get_attribute('class')
+                        if 'disable' not in (cell_classes or ''):
+                            target_cell = cell
+                            break
+                except:
+                    continue
+
+            if not target_cell:
+                return None
+
+            # 해당 셀의 dayindex 가져오기
+            dayindex = target_cell.get_attribute('dayindex')
+
+            # 같은 dayindex를 가진 모든 td에서 일정 찾기
+            schedule_cells = driver.find_elements(By.CSS_SELECTOR, f"td[dayindex='{dayindex}']")
+
+            date_status = {}
+
+            # 각 셀에서 ._schedule div 찾기
+            for cell in schedule_cells:
+                schedules = cell.find_elements(By.CSS_SELECTOR, "._schedule")
+
+                for schedule in schedules:
+                    try:
+                        # title 속성에서 시간과 상태 파싱
+                        link = schedule.find_element(By.TAG_NAME, "a")
+                        title = link.get_attribute('title')  # 예: "11:00 완료" 또는 "17:00 가능"
+
+                        if not title:
+                            continue
+
+                        # 시간과 상태 분리
+                        parts = title.split()
+                        if len(parts) >= 2:
+                            time_str = parts[0]  # "11:00", "14:00", "17:00"
+                            status = parts[1]    # "완료", "가능"
+
+                            # 시간대가 활성화되어 있는지 확인
+                            if not time_slots.get(time_str, False):
+                                continue
+
+                            # "완료" = 예약완료, "가능" = 예약가능
+                            date_status[time_str] = "완료" if status == "완료" else "가능"
+
+                    except:
+                        continue
+
+            return date_status if date_status else None
+
+        except Exception as e:
+            print(f"이라운지 날짜 파싱 오류 ({date_str}): {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def detect_changes(self, current_data):
         """
