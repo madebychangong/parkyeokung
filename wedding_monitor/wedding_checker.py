@@ -12,6 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
 from webdriver_manager.chrome import ChromeDriverManager
 import requests
 from bs4 import BeautifulSoup
@@ -84,21 +85,52 @@ class WeddingChecker:
 
             # 날짜별로 확인
             for date_str in target_dates:
-                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                year = date_obj.year
-                month = date_obj.month
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                    year = date_obj.year
+                    month = date_obj.month
 
-                # 예약 페이지 접속
-                url = f"https://www.snuwedding.co.kr/snu/reservation?year={year}&month={month}"
-                driver.get(url)
+                    # 예약 페이지 접속
+                    url = f"https://www.snuwedding.co.kr/snu/reservation?year={year}&month={month}"
+                    driver.get(url)
 
-                # 페이지 로딩 대기
-                time.sleep(2)
+                    # 페이지 로딩 대기
+                    time.sleep(2)
 
-                # 해당 날짜의 예약 상황 확인
-                date_status = self._parse_research_park_date(driver, date_str, time_slots)
-                if date_status:
-                    result[date_str] = date_status
+                    # Alert 팝업 처리
+                    try:
+                        alert = driver.switch_to.alert
+                        alert_text = alert.text
+                        print(f"Alert 감지 ({date_str}): {alert_text}")
+                        alert.accept()  # Alert 닫기
+
+                        # "아직 오픈하지 않은 구간" 메시지면 해당 날짜 스킵
+                        if "오픈하지 않은" in alert_text or "아직" in alert_text:
+                            print(f"날짜 {date_str}는 아직 예약 오픈 전입니다. 스킵합니다.")
+                            continue
+
+                    except NoAlertPresentException:
+                        # Alert가 없으면 정상 진행
+                        pass
+
+                    # 해당 날짜의 예약 상황 확인
+                    date_status = self._parse_research_park_date(driver, date_str, time_slots)
+                    if date_status:
+                        result[date_str] = date_status
+
+                except UnexpectedAlertPresentException as e:
+                    print(f"날짜 {date_str} 처리 중 Alert 발생: {e}")
+                    try:
+                        alert = driver.switch_to.alert
+                        print(f"Alert Text: {alert.text}")
+                        alert.accept()
+                    except:
+                        pass
+                    continue
+
+                except Exception as e:
+                    print(f"날짜 {date_str} 처리 중 오류: {e}")
+                    continue
 
         except Exception as e:
             print(f"연구공원 크롤링 오류: {e}")
@@ -153,10 +185,18 @@ class WeddingChecker:
 
                     date_status[time_key] = "예약가능" if is_available else "예약완료"
 
+                except UnexpectedAlertPresentException:
+                    # Alert가 발생하면 상위로 예외 전달
+                    raise
+
                 except Exception:
                     date_status[time_key] = "예약완료"
 
             return date_status if date_status else None
+
+        except UnexpectedAlertPresentException:
+            # Alert 예외는 상위로 전달
+            raise
 
         except Exception as e:
             print(f"날짜 파싱 오류 ({date_str}): {e}")
