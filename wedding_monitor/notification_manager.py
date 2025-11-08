@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import requests
 import hmac
 import hashlib
-import uuid
+import secrets
 
 
 class NotificationManager:
@@ -68,13 +68,13 @@ class NotificationManager:
     def _create_auth_header(self):
         """SOLAPI HMAC-SHA256 인증 헤더 생성"""
         # 현재 시간 (ISO 8601 형식)
-        date = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        date_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-        # 랜덤 salt 생성
-        salt = str(uuid.uuid4())
+        # 랜덤 salt 생성 (32자 hex)
+        salt = secrets.token_hex(16)
 
         # HMAC-SHA256 서명 생성
-        data = date + salt
+        data = date_time + salt
         signature = hmac.new(
             self.sms_api_secret.encode(),
             data.encode(),
@@ -82,7 +82,7 @@ class NotificationManager:
         ).hexdigest()
 
         # Authorization 헤더
-        return f"HMAC-SHA256 apiKey={self.sms_api_key}, date={date}, salt={salt}, signature={signature}"
+        return f"HMAC-SHA256 apiKey={self.sms_api_key}, date={date_time}, salt={salt}, signature={signature}"
 
     def _send_coolsms(self, message):
         """SOLAPI (구 CoolSMS) 메시지 전송"""
