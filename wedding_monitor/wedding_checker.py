@@ -333,8 +333,11 @@ class WeddingChecker:
             date_status = {}
 
             # 각 셀에서 ._schedule div 찾기
+            print(f"[DEBUG] 날짜 {date_str} 파싱 시작, dayindex={dayindex}, 활성화된 시간대: {time_slots}")
+
             for cell in schedule_cells:
                 schedules = cell.find_elements(By.CSS_SELECTOR, "._schedule")
+                print(f"[DEBUG] 셀에서 찾은 일정 개수: {len(schedules)}")
 
                 for schedule in schedules:
                     try:
@@ -342,7 +345,10 @@ class WeddingChecker:
                         link = schedule.find_element(By.TAG_NAME, "a")
                         title = link.get_attribute('title')  # 예: "11:00 완료" 또는 "17:00 가능"
 
+                        print(f"[DEBUG] 파싱한 title: '{title}'")
+
                         if not title:
+                            print(f"[DEBUG] title이 비어있음, 스킵")
                             continue
 
                         # 시간과 상태 분리
@@ -351,15 +357,24 @@ class WeddingChecker:
                             time_str = parts[0]  # "11:00", "14:00", "17:00"
                             status = parts[1]    # "완료", "가능"
 
+                            print(f"[DEBUG] 파싱 결과 - 시간: '{time_str}', 상태: '{status}'")
+
                             # 시간대가 활성화되어 있는지 확인
                             if not time_slots.get(time_str, False):
+                                print(f"[DEBUG] 시간대 '{time_str}'가 비활성화되어 있거나 없음, 스킵")
                                 continue
 
                             # "완료" = 예약완료, "가능" = 예약가능
                             date_status[time_str] = "완료" if status == "완료" else "가능"
+                            print(f"[DEBUG] date_status에 추가: {time_str} = {date_status[time_str]}")
 
-                    except:
+                    except Exception as e:
+                        print(f"[DEBUG] 일정 파싱 중 오류: {e}")
+                        import traceback
+                        traceback.print_exc()
                         continue
+
+            print(f"[DEBUG] 최종 date_status: {date_status}")
 
             return date_status if date_status else None
 
