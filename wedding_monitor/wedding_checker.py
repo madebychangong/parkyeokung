@@ -232,13 +232,16 @@ class WeddingChecker:
 
         result = {}
 
-        # Selenium 설정
+        # Selenium 설정 (봇 감지 우회)
         chrome_options = Options()
-        # chrome_options.add_argument('--headless')  # 봇 감지 방지를 위해 headless 비활성화
+        chrome_options.add_argument('--headless=new')  # 새로운 headless 모드
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')  # 자동화 감지 비활성화
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])  # automation 플래그 제거
+        chrome_options.add_experimental_option('useAutomationExtension', False)  # automation extension 비활성화
 
         driver = None
 
@@ -262,6 +265,10 @@ class WeddingChecker:
             # 캘린더 페이지 접속 (첫 1회만)
             print(f"이라운지 캘린더 접속")
             driver.get(calendar_url)
+
+            # 봇 감지 우회: navigator.webdriver 속성 제거
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
             time.sleep(3)
 
             # 월별로 처리
