@@ -376,13 +376,33 @@ class WeddingChecker:
                     print(f"[DEBUG] 다음 달 버튼 클릭")
                     next_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_next")
                     next_btn.click()
-                    time.sleep(1)
+                    time.sleep(0.5)  # 클릭 후 짧은 대기
+                    # 스케줄이 모두 로드될 때까지 대기 (최대 5초)
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    try:
+                        WebDriverWait(driver, 5).until(
+                            lambda d: len(d.find_elements(By.CSS_SELECTOR, "div._schedule")) > 0
+                        )
+                        time.sleep(1.5)  # 추가 대기: 모든 일정 렌더링 완료
+                    except:
+                        time.sleep(2)  # fallback
                 else:
                     # 이전 달로 이동
                     print(f"[DEBUG] 이전 달 버튼 클릭")
                     prev_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_prev")
                     prev_btn.click()
-                    time.sleep(1)
+                    time.sleep(0.5)  # 클릭 후 짧은 대기
+                    # 스케줄이 모두 로드될 때까지 대기 (최대 5초)
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    try:
+                        WebDriverWait(driver, 5).until(
+                            lambda d: len(d.find_elements(By.CSS_SELECTOR, "div._schedule")) > 0
+                        )
+                        time.sleep(1.5)  # 추가 대기: 모든 일정 렌더링 완료
+                    except:
+                        time.sleep(2)  # fallback
 
             except Exception as e:
                 print(f"[DEBUG] 월 이동 중 오류: {e}")

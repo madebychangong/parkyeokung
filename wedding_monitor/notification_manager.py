@@ -3,9 +3,6 @@
 텔레그램 2개 동시 알림 발송 + SOLAPI (구 CoolSMS)
 """
 
-import asyncio
-from telegram import Bot
-from telegram.error import TelegramError
 from datetime import datetime, timezone
 import requests
 import hmac
@@ -37,9 +34,6 @@ class NotificationManager:
         # 하드코딩된 텔레그램 정보
         self.bot_token = "8226395653:AAELjJQhqoQYHIRGC5yrlHL3SAn_U37CNyM"
         self.chat_id = "-5021213184"
-
-        # 봇 초기화
-        self.telegram_bot = Bot(token=self.bot_token)
         self.telegram_bot_enabled = True
 
     def _init_sms(self):
@@ -120,16 +114,24 @@ class NotificationManager:
             print(f"SMS 전송 오류: {e}")
             return False
 
-    async def _send_telegram_async(self, bot, chat_id, message):
-        """비동기 텔레그램 메시지 전송"""
+    def _send_telegram_sync(self, chat_id, message):
+        """동기 텔레그램 메시지 전송 (requests 사용)"""
         try:
-            await bot.send_message(
-                chat_id=chat_id,
-                text=message,
-                parse_mode='HTML'
-            )
-            return True
-        except TelegramError as e:
+            url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+            payload = {
+                'chat_id': chat_id,
+                'text': message,
+                'parse_mode': 'HTML'
+            }
+            response = requests.post(url, json=payload, timeout=10)
+
+            if response.status_code == 200:
+                print(f"[DEBUG] 텔레그램 전송 성공: {chat_id}")
+                return True
+            else:
+                print(f"텔레그램 전송 실패: HTTP {response.status_code}, {response.text}")
+                return False
+        except Exception as e:
             print(f"텔레그램 전송 실패: {e}")
             return False
 
@@ -145,24 +147,10 @@ class NotificationManager:
 
         # 텔레그램 전송
         if self.telegram_enabled:
-            # Create new event loop for each call to avoid "Event loop is closed" error
             print(f"[DEBUG] 텔레그램 전송 시작: '{message[:50]}...'")
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                print(f"[DEBUG] Event loop 생성됨: {loop}")
-                telegram_success = loop.run_until_complete(self._send_to_all_bots(message))
-                print(f"[DEBUG] 텔레그램 전송 결과: {telegram_success}")
-                success &= telegram_success
-            except Exception as e:
-                print(f"[DEBUG] 텔레그램 전송 중 예외 발생: {e}")
-                import traceback
-                traceback.print_exc()
-                success = False
-            finally:
-                print(f"[DEBUG] Event loop 닫는 중...")
-                loop.close()
-                print(f"[DEBUG] Event loop 닫힘")
+            telegram_success = self._send_to_all_bots(message)
+            print(f"[DEBUG] 텔레그램 전송 결과: {telegram_success}")
+            success &= telegram_success
         else:
             print("텔레그램 알림이 비활성화되어 있습니다.")
 
@@ -173,15 +161,14 @@ class NotificationManager:
 
         return success
 
-    async def _send_to_all_bots(self, message):
+    def _send_to_all_bots(self, message):
         """텔레그램 그룹방에 메시지 전송"""
         if not self.telegram_bot_enabled:
             print("텔레그램 봇이 비활성화되어 있습니다.")
             return False
 
         # 텔레그램 그룹방에 전송
-        return await self._send_telegram_async(
-            self.telegram_bot,
+        return self._send_telegram_sync(
             self.chat_id,
             f"🔔 {message}"
         )
