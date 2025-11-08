@@ -285,7 +285,7 @@ class WeddingChecker:
             # 봇 감지 우회: navigator.webdriver 속성 제거
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-            time.sleep(3)
+            time.sleep(1.5)  # 브라우저 창이 띄워지므로 대기 시간 단축
 
             # 월별로 처리
             for year_month, dates in dates_by_month.items():
@@ -417,7 +417,7 @@ class WeddingChecker:
                         else:
                             stable_count = 0
                         prev_count = current_count
-                    time.sleep(1)  # 안전을 위한 추가 대기
+                    time.sleep(0.5)  # 브라우저 창이 띄워지므로 대기 시간 단축
                 else:
                     # 이전 달로 이동
                     print(f"[DEBUG] 이전 달 버튼 클릭")
@@ -440,7 +440,7 @@ class WeddingChecker:
                         else:
                             stable_count = 0
                         prev_count = current_count
-                    time.sleep(1)  # 안전을 위한 추가 대기
+                    time.sleep(0.5)  # 브라우저 창이 띄워지므로 대기 시간 단축
 
             except Exception as e:
                 print(f"[DEBUG] 월 이동 중 오류: {e}")
@@ -499,7 +499,7 @@ class WeddingChecker:
 
             # 페이지 스크롤 (모든 일정 로드)
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1)
+            time.sleep(0.3)  # 브라우저 창이 띄워지므로 대기 시간 단축
 
             # 모든 ._schedule div 찾기
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
