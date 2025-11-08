@@ -195,6 +195,11 @@ class WeddingMonitorGUI:
             row=0, column=0, sticky=tk.W, padx=5, pady=5
         )
 
+        # 텔레그램 테스트 버튼
+        ttk.Button(notif_frame, text="📱 테스트 발송", command=self.test_telegram, width=15).grid(
+            row=0, column=1, padx=5, pady=5, sticky=tk.W
+        )
+
         # 확인 주기
         interval_row = ttk.Frame(notif_frame)
         interval_row.grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
@@ -437,6 +442,43 @@ class WeddingMonitorGUI:
         except Exception as e:
             messagebox.showerror("오류", f"설정 저장 실패: {e}")
 
+    def test_telegram(self):
+        """텔레그램 테스트 발송"""
+        # 임시 config 생성
+        temp_config = {
+            'telegram': {
+                'enabled': True
+            },
+            'sms': {
+                'enabled': False
+            }
+        }
+
+        try:
+            # NotificationManager 생성 및 테스트 메시지 전송
+            notifier = NotificationManager(temp_config)
+
+            test_message = """━━━━━━━━━━━━━━━━
+📱 텔레그램 테스트 발송
+━━━━━━━━━━━━━━━━
+
+텔레그램 연동 테스트 메시지입니다.
+설정이 정상적으로 완료되었습니다!"""
+
+            self.log_message("텔레그램 테스트 발송 중...")
+            success = notifier.send_notification(test_message, notification_type='info')
+
+            if success:
+                messagebox.showinfo("성공", "텔레그램 테스트 발송 완료!\n그룹방을 확인하세요.")
+                self.log_message("텔레그램 테스트 발송 성공")
+            else:
+                messagebox.showerror("실패", "텔레그램 발송 실패. 로그를 확인하세요.")
+                self.log_message("텔레그램 테스트 발송 실패")
+
+        except Exception as e:
+            messagebox.showerror("오류", f"텔레그램 테스트 발송 오류:\n{str(e)}")
+            self.log_message(f"텔레그램 테스트 오류: {e}")
+
     def test_sms(self):
         """SMS 테스트 발송"""
         # 수신번호 확인
@@ -449,6 +491,9 @@ class WeddingMonitorGUI:
 
         # 임시 config 생성
         temp_config = {
+            'telegram': {
+                'enabled': False
+            },
             'sms': {
                 'enabled': True,
                 'to_numbers': [num for num in [to_number1, to_number2] if num]
