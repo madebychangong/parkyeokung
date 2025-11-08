@@ -245,6 +245,11 @@ class WeddingMonitorGUI:
         self.sms_to_number2 = ttk.Entry(sms_frame, width=35)
         self.sms_to_number2.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
+        # SMS 테스트 버튼
+        ttk.Button(sms_frame, text="📱 테스트 발송", command=self.test_sms, width=15).grid(
+            row=3, column=1, padx=5, pady=10, sticky=tk.E
+        )
+
         # ========== 제어 버튼 ==========
         control_frame = ttk.Frame(self.scrollable_frame)
         control_frame.grid(row=5, column=0, columnspan=2, pady=10)
@@ -468,6 +473,51 @@ class WeddingMonitorGUI:
             messagebox.showinfo("성공", "설정이 저장되었습니다.")
         except Exception as e:
             messagebox.showerror("오류", f"설정 저장 실패: {e}")
+
+    def test_sms(self):
+        """SMS 테스트 발송"""
+        # 수신번호 확인
+        to_number1 = self.sms_to_number1.get().strip()
+        to_number2 = self.sms_to_number2.get().strip()
+
+        if not to_number1 and not to_number2:
+            messagebox.showwarning("경고", "최소 1개의 수신번호를 입력하세요.")
+            return
+
+        # 임시 config 생성
+        temp_config = {
+            'sms': {
+                'enabled': True,
+                'to_numbers': [num for num in [to_number1, to_number2] if num]
+            }
+        }
+
+        try:
+            # NotificationManager 생성 및 테스트 메시지 전송
+            notifier = NotificationManager(temp_config)
+
+            test_message = """
+━━━━━━━━━━━━━━━━
+📱 SMS 테스트 발송
+━━━━━━━━━━━━━━━━
+
+SOLAPI 연동 테스트 메시지입니다.
+설정이 정상적으로 완료되었습니다!
+"""
+
+            self.log_message("SMS 테스트 발송 중...")
+            success = notifier._send_coolsms(test_message.strip())
+
+            if success:
+                messagebox.showinfo("성공", f"SMS 테스트 발송 완료!\n수신번호: {', '.join(temp_config['sms']['to_numbers'])}")
+                self.log_message("SMS 테스트 발송 성공")
+            else:
+                messagebox.showerror("실패", "SMS 발송 실패. 로그를 확인하세요.")
+                self.log_message("SMS 테스트 발송 실패")
+
+        except Exception as e:
+            messagebox.showerror("오류", f"SMS 테스트 발송 오류:\n{str(e)}")
+            self.log_message(f"SMS 테스트 오류: {e}")
 
     def start_monitoring(self):
         """모니터링 시작"""
