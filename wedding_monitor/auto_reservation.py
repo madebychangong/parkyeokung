@@ -17,12 +17,12 @@ import time
 # 예약 정보 설정 (여기를 수정하세요!)
 # ============================================
 RESERVATION_INFO = {
-    # 신랑 정보
+    # 예약자 1 정보
     "groom_name": "홍길동",
     "groom_tel": "010-1234-5678",
     "groom_email": "groom@email.com",
 
-    # 신부 정보
+    # 예약자 2 정보
     "bride_name": "김영희",
     "bride_tel": "010-5678-1234",
     "bride_email": "bride@email.com",

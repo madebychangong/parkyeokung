@@ -1,6 +1,6 @@
 """
 통합 알림 관리자
-텔레그램 2개 (신랑용, 신부용) 동시 알림 발송
+텔레그램 2개 동시 알림 발송
 """
 
 import asyncio
@@ -12,7 +12,7 @@ from datetime import datetime
 class NotificationManager:
     """
     통합 알림 관리자
-    신랑용/신부용 텔레그램 봇 2개에 동시 알림 전송
+    텔레그램 봇 2개에 동시 알림 전송
     """
 
     def __init__(self, config):
@@ -27,7 +27,7 @@ class NotificationManager:
         """텔레그램 봇 2개 초기화"""
         telegram_config = self.config.get('telegram', {})
 
-        # 신랑용 텔레그램
+        # 텔레그램 1
         groom_config = telegram_config.get('groom', {})
         if groom_config.get('bot_token') and groom_config.get('chat_id'):
             self.groom_bot = Bot(token=groom_config['bot_token'])
@@ -36,7 +36,7 @@ class NotificationManager:
         else:
             self.groom_enabled = False
 
-        # 신부용 텔레그램
+        # 텔레그램 2
         bride_config = telegram_config.get('bride', {})
         if bride_config.get('bot_token') and bride_config.get('chat_id'):
             self.bride_bot = Bot(token=bride_config['bot_token'])
@@ -60,7 +60,7 @@ class NotificationManager:
 
     def send_notification(self, message, notification_type='info'):
         """
-        통합 알림 전송 (신랑용, 신부용 동시 발송)
+        통합 알림 전송 (텔레그램 2개 동시 발송)
 
         Args:
             message: 알림 메시지
@@ -77,20 +77,20 @@ class NotificationManager:
         """모든 활성화된 봇에게 동시 전송"""
         tasks = []
 
-        # 신랑용 봇 전송
+        # 텔레그램 1 전송
         if self.groom_enabled:
             tasks.append(self._send_telegram_async(
                 self.groom_bot,
                 self.groom_chat_id,
-                f"👰‍♂️ [신랑용 알림]\n\n{message}"
+                f"📱 [텔레그램 1]\n\n{message}"
             ))
 
-        # 신부용 봇 전송
+        # 텔레그램 2 전송
         if self.bride_enabled:
             tasks.append(self._send_telegram_async(
                 self.bride_bot,
                 self.bride_chat_id,
-                f"👰‍♀️ [신부용 알림]\n\n{message}"
+                f"📱 [텔레그램 2]\n\n{message}"
             ))
 
         if not tasks:
@@ -122,7 +122,7 @@ class NotificationManager:
 """
         return message.strip()
 
-    def format_auto_reservation_start(self, venue_name, date, time, groom_name, bride_name):
+    def format_auto_reservation_start(self, venue_name, date, time, person1_name, person2_name):
         """자동 예약 시작 알림 포맷"""
         message = f"""
 ━━━━━━━━━━━━━━━━
@@ -132,15 +132,14 @@ class NotificationManager:
 📅 {date}
 ⏰ {time}
 
-👰‍♂️ 신랑: {groom_name}
-👰‍♀️ 신부: {bride_name}
+예약자: {person1_name}, {person2_name}
 
 잠시만 기다려주세요...
 ━━━━━━━━━━━━━━━━
 """
         return message.strip()
 
-    def format_auto_reservation_success(self, venue_name, date, time, groom_info, bride_info):
+    def format_auto_reservation_success(self, venue_name, date, time, person1_info, person2_info):
         """자동 예약 성공 알림 포맷"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -153,10 +152,8 @@ class NotificationManager:
 ⏰ {time}
 
 신청 정보:
-👰‍♂️ 신랑: {groom_info['name']}
-📞 {groom_info['tel']}
-👰‍♀️ 신부: {bride_info['name']}
-📞 {bride_info['tel']}
+👤 {person1_info['name']} ({person1_info['tel']})
+👤 {person2_info['name']} ({person2_info['tel']})
 
 ⚠️ 중요!
 직원 확인 후 전화 연락 예정
