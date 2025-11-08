@@ -232,16 +232,17 @@ class WeddingChecker:
 
         result = {}
 
-        # Selenium 설정 (봇 감지 우회)
+        # Selenium 설정 (봇 감지 우회 - 창은 띄우되 최소화)
         chrome_options = Options()
-        chrome_options.add_argument('--headless=new')  # 새로운 headless 모드
+        # headless 모드 사용 안 함 (네이버가 감지함) - 대신 창 최소화
+        chrome_options.add_argument('--start-minimized')  # 창 최소화
+        chrome_options.add_argument('--window-position=-2400,-2400')  # 화면 밖으로 이동
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')  # 자동화 감지 비활성화
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])  # automation 플래그 제거
-        chrome_options.add_experimental_option('useAutomationExtension', False)  # automation extension 비활성화
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
 
         driver = None
 
