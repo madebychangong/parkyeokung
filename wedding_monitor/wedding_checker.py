@@ -59,7 +59,7 @@ class WeddingChecker:
         서울대 연구공원 웨딩홀 확인
 
         Args:
-            target_dates: 확인할 날짜 리스트 ['2026-11-01', ...]
+            target_dates: 확인할 날짜 리스트 ['2025-11-01', ...]
             time_slots: 확인할 시간대 {'11:00': True, '13:00': True, ...}
 
         Returns:
@@ -83,15 +83,23 @@ class WeddingChecker:
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            # 날짜별로 확인
+            # 날짜를 년월별로 그룹화
+            dates_by_month = {}
             for date_str in target_dates:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                year_month = f"{date_obj.year}-{date_obj.month:02d}"
+                if year_month not in dates_by_month:
+                    dates_by_month[year_month] = []
+                dates_by_month[year_month].append(date_str)
+
+            # 월별로 페이지 로드
+            for year_month, dates in dates_by_month.items():
                 try:
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                    year = date_obj.year
-                    month = date_obj.month
+                    year, month = year_month.split('-')
 
                     # 예약 페이지 접속
                     url = f"https://www.snuwedding.co.kr/snu/reservation?year={year}&month={month}"
+                    print(f"페이지 접속: {url}")
                     driver.get(url)
 
                     # 페이지 로딩 대기
@@ -101,25 +109,27 @@ class WeddingChecker:
                     try:
                         alert = driver.switch_to.alert
                         alert_text = alert.text
-                        print(f"Alert 감지 ({date_str}): {alert_text}")
-                        alert.accept()  # Alert 닫기
+                        print(f"Alert 감지 ({year_month}): {alert_text}")
+                        alert.accept()
 
-                        # "아직 오픈하지 않은 구간" 메시지면 해당 날짜 스킵
+                        # "아직 오픈하지 않은 구간" 메시지면 해당 월 전체 스킵
                         if "오픈하지 않은" in alert_text or "아직" in alert_text:
-                            print(f"날짜 {date_str}는 아직 예약 오픈 전입니다. 스킵합니다.")
+                            print(f"{year_month}는 아직 예약 오픈 전입니다. 스킵합니다.")
                             continue
 
                     except NoAlertPresentException:
                         # Alert가 없으면 정상 진행
                         pass
 
-                    # 해당 날짜의 예약 상황 확인
-                    date_status = self._parse_research_park_date(driver, date_str, time_slots)
-                    if date_status:
-                        result[date_str] = date_status
+                    # 해당 월의 모든 날짜 파싱
+                    for date_str in dates:
+                        date_status = self._parse_research_park_date(driver, date_str, time_slots)
+                        if date_status:
+                            result[date_str] = date_status
+                            print(f"{date_str}: {date_status}")
 
                 except UnexpectedAlertPresentException as e:
-                    print(f"날짜 {date_str} 처리 중 Alert 발생: {e}")
+                    print(f"월 {year_month} 처리 중 Alert 발생: {e}")
                     try:
                         alert = driver.switch_to.alert
                         print(f"Alert Text: {alert.text}")
@@ -129,11 +139,15 @@ class WeddingChecker:
                     continue
 
                 except Exception as e:
-                    print(f"날짜 {date_str} 처리 중 오류: {e}")
+                    print(f"월 {year_month} 처리 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
 
         except Exception as e:
             print(f"연구공원 크롤링 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
         finally:
             if driver:
@@ -142,55 +156,54 @@ class WeddingChecker:
         return result
 
     def _parse_research_park_date(self, driver, date_str, time_slots):
-        """연구공원 특정 날짜의 예약 상황 파싱"""
+        """연구구원 특정 날짜의 예약 상황 파싱"""
         try:
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
             day = date_obj.day
 
-            # 해당 날짜 셀 찾기
-            day_cells = driver.find_elements(By.CSS_SELECTOR, f"td[data-date='{date_str}']")
+            # reservation-list__record 중에서 해당 날짜 찾기
+            records = driver.find_elements(By.CSS_SELECTOR, "div.reservation-list__record")
 
-            if not day_cells:
+            target_record = None
+            for record in records:
+                # 첫 번째 div에서 날짜 추출
+                day_div = record.find_element(By.CSS_SELECTOR, "div")
+                day_text = day_div.text.strip()  # 예: "01 (토)" 또는 "09 (일)"
+
+                # 날짜 숫자만 추출
+                day_num = int(day_text.split()[0])
+
+                if day_num == day:
+                    target_record = record
+                    break
+
+            if not target_record:
                 return None
+
+            # 해당 날짜의 a 태그들 가져오기 (5개: 11시, 13시, 15시, 17시, 18:30)
+            links = target_record.find_elements(By.TAG_NAME, "a")
+
+            if len(links) != 5:
+                print(f"경고: 날짜 {date_str}의 시간대 개수가 5개가 아님 ({len(links)}개)")
+                return None
+
+            # 시간대 매핑 (순서대로)
+            time_keys = ['11:00', '13:00', '15:00', '17:00', '18:30']
 
             date_status = {}
 
-            # 시간대별로 확인
-            time_mapping = {
-                '11:00': '오전 11시',
-                '13:00': '오후 1시',
-                '15:00': '오후 3시',
-                '17:00': '오후 5시',
-                '18:30': '오후 6시30분'
-            }
-
-            for time_key, time_label in time_mapping.items():
+            for i, time_key in enumerate(time_keys):
+                # 해당 시간대가 활성화되어 있는지 확인
                 if not time_slots.get(time_key, False):
                     continue
 
-                # 예약 가능 버튼 찾기
-                # class="avail" 이면 예약 가능, 없으면 예약 완료
-                try:
-                    avail_links = day_cells[0].find_elements(
-                        By.CSS_SELECTOR,
-                        f"a[href*='{date_str}'].avail"
-                    )
+                link = links[i]
 
-                    # 시간대별로 확인
-                    is_available = False
-                    for link in avail_links:
-                        if time_label in link.text:
-                            is_available = True
-                            break
+                # class="avail"이 있으면 예약가능, 없으면 예약완료
+                link_classes = link.get_attribute('class')
+                is_available = 'avail' in (link_classes or '')
 
-                    date_status[time_key] = "예약가능" if is_available else "예약완료"
-
-                except UnexpectedAlertPresentException:
-                    # Alert가 발생하면 상위로 예외 전달
-                    raise
-
-                except Exception:
-                    date_status[time_key] = "예약완료"
+                date_status[time_key] = "예약가능" if is_available else "예약완료"
 
             return date_status if date_status else None
 
@@ -200,6 +213,8 @@ class WeddingChecker:
 
         except Exception as e:
             print(f"날짜 파싱 오류 ({date_str}): {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def check_elounge(self, target_dates, time_slots):
