@@ -671,8 +671,8 @@ SOLAPI 연동 테스트 메시지입니다.
         self.monitoring = False
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
-        self.status_label.config(text="상태: 중지됨")
-        self.log_message("모니터링 중지")
+        self.status_label.config(text="상태: 중지 요청됨 (현재 작업 완료 후 중지)")
+        self.log_message("모니터링 중지 요청 (현재 크롤링이 완료되면 중지됩니다)")
 
     def monitoring_loop(self):
         """모니터링 루프"""
@@ -723,6 +723,10 @@ SOLAPI 연동 테스트 메시지입니다.
             except Exception as e:
                 self.log_message(f"오류: {e}")
                 time.sleep(60)
+
+        # 루프 종료 후 상태 업데이트
+        self.update_status("중지됨")
+        self.log_message("모니터링이 완전히 중지되었습니다")
 
     def handle_change(self, change, notifier, auto_reserve):
         """변화 처리"""
