@@ -31,6 +31,9 @@ class WeddingMonitorGUI:
         # 설정 로드
         self.config = self.load_config()
 
+        # 스타일 설정 (LabelFrame 여백 최소화)
+        self.setup_styles()
+
         # 스크롤 가능한 메인 프레임 생성
         self.create_scrollable_frame()
 
@@ -39,6 +42,14 @@ class WeddingMonitorGUI:
 
         # 설정 적용
         self.apply_config()
+
+    def setup_styles(self):
+        """ttk 스타일 설정"""
+        style = ttk.Style()
+
+        # Compact LabelFrame 스타일 생성
+        style.configure('Compact.TLabelframe', borderwidth=1, relief='solid')
+        style.configure('Compact.TLabelframe.Label', font=('', 9))
 
     def create_scrollable_frame(self):
         """스크롤 가능한 메인 프레임 생성"""
@@ -73,7 +84,7 @@ class WeddingMonitorGUI:
         """GUI 위젯 생성"""
 
         # ========== 날짜 모니터링 설정 (왼쪽 열) ==========
-        date_frame = ttk.LabelFrame(self.scrollable_frame, text="📅 모니터링 설정", padding=(5, 0))
+        date_frame = ttk.LabelFrame(self.scrollable_frame, text="📅 모니터링 설정", padding=(5, 0), style='Compact.TLabelframe')
         date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(0, 3))
 
         # 방법 1: 기간으로 모니터링
@@ -134,7 +145,7 @@ class WeddingMonitorGUI:
         self.specific_dates_listbox.config(yscrollcommand=list_scroll.set)
 
         # ========== 시간대별 동작 설정 (왼쪽 열) ==========
-        time_frame = ttk.LabelFrame(self.scrollable_frame, text="⏰ 시간대별 설정", padding=(5, 0))
+        time_frame = ttk.LabelFrame(self.scrollable_frame, text="⏰ 시간대별 설정", padding=(5, 0), style='Compact.TLabelframe')
         time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(0, 3))
 
         # 연구공원 (왼쪽)
@@ -181,7 +192,7 @@ class WeddingMonitorGUI:
             )
 
         # ========== 자동 예약 정보 (오른쪽 열) ==========
-        auto_frame = ttk.LabelFrame(self.scrollable_frame, text="📝 예약 정보", padding=(5, 0))
+        auto_frame = ttk.LabelFrame(self.scrollable_frame, text="📝 예약 정보", padding=(5, 0), style='Compact.TLabelframe')
         auto_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
 
         info_text = f"{RESERVATION_INFO['groom_name']} ({RESERVATION_INFO['groom_tel']}), {RESERVATION_INFO['bride_name']} ({RESERVATION_INFO['bride_tel']})\n예상인원: {RESERVATION_INFO['expected_people']}   💡 수정: auto_reservation.py"
@@ -191,7 +202,7 @@ class WeddingMonitorGUI:
         )
 
         # ========== 알림 설정 (오른쪽 열) ==========
-        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding=(5, 0))
+        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding=(5, 0), style='Compact.TLabelframe')
         notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(3, 0))
 
         # 텔레그램 활성화 체크박스
@@ -216,7 +227,7 @@ class WeddingMonitorGUI:
         ttk.Label(interval_row, text="분마다").pack(side=tk.LEFT, padx=2)
 
         # ========== SMS 설정 (오른쪽 열) ==========
-        sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정", padding=(5, 0))
+        sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정", padding=(5, 0), style='Compact.TLabelframe')
         sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=(-5, 0), padx=(3, 0))
 
         # SMS 활성화 체크박스
@@ -253,7 +264,7 @@ class WeddingMonitorGUI:
         ttk.Button(control_frame, text="설정 저장", command=self.save_config, width=12).grid(row=0, column=2, padx=5)
 
         # ========== 모니터링 상태 (하단 전체) ==========
-        status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding=(5, 0))
+        status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding=(5, 0), style='Compact.TLabelframe')
         status_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(-5, 0))
 
         self.status_label = ttk.Label(status_frame, text="상태: 대기중")
@@ -266,7 +277,7 @@ class WeddingMonitorGUI:
         self.next_check_label.grid(row=2, column=0, sticky=tk.W)
 
         # ========== 알림 기록 (하단 전체) ==========
-        log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding=(5, 0))
+        log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding=(5, 0), style='Compact.TLabelframe')
         log_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(-5, 0))
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=8, width=90)
