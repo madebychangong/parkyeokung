@@ -1,13 +1,16 @@
 """
 통합 알림 관리자
-텔레그램 2개 동시 알림 발송 + CoolSMS
+텔레그램 2개 동시 알림 발송 + SOLAPI (구 CoolSMS)
 """
 
 import asyncio
 from telegram import Bot
 from telegram.error import TelegramError
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
+import hmac
+import hashlib
+import uuid
 
 
 class NotificationManager:
@@ -52,7 +55,7 @@ class NotificationManager:
             self.bride_enabled = False
 
     def _init_sms(self):
-        """CoolSMS 초기화 (API 정보 하드코딩)"""
+        """SOLAPI (구 CoolSMS) 초기화 (API 정보 하드코딩)"""
         # 하드코딩된 API 정보
         self.sms_api_key = 'NCSCPNC7FTNKV0SZ'
         self.sms_api_secret = 'CWEIJDIRZAXL76F2NG879T8J9P6SCNGM'
@@ -62,20 +65,41 @@ class NotificationManager:
         sms_config = self.config.get('sms', {})
         self.sms_to_numbers = sms_config.get('to_numbers', [])  # 리스트
 
+    def _create_auth_header(self):
+        """SOLAPI HMAC-SHA256 인증 헤더 생성"""
+        # 현재 시간 (ISO 8601 형식)
+        date = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
+        # 랜덤 salt 생성
+        salt = str(uuid.uuid4())
+
+        # HMAC-SHA256 서명 생성
+        data = date + salt
+        signature = hmac.new(
+            self.sms_api_secret.encode(),
+            data.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        # Authorization 헤더
+        return f"HMAC-SHA256 apiKey={self.sms_api_key}, date={date}, salt={salt}, signature={signature}"
+
     def _send_coolsms(self, message):
-        """CoolSMS 전송"""
+        """SOLAPI (구 CoolSMS) 메시지 전송"""
         if not all([self.sms_api_key, self.sms_api_secret,
                     self.sms_from_number, self.sms_to_numbers]):
             print("SMS 설정이 완전하지 않습니다.")
             return False
 
         try:
-            # CoolSMS API 엔드포인트
-            url = "https://api.coolsms.co.kr/messages/v4/send"
+            # SOLAPI API 엔드포인트
+            url = "https://api.solapi.com/messages/v4/send-many/detail"
 
-            # 헤더
+            # 인증 헤더 생성
+            auth_header = self._create_auth_header()
+
             headers = {
-                'Authorization': f'HMAC-SHA256 apiKey={self.sms_api_key}, date=auto, salt=auto, signature=auto',
+                'Authorization': auth_header,
                 'Content-Type': 'application/json'
             }
 
@@ -92,25 +116,10 @@ class NotificationManager:
                 })
 
             data = {
-                'message': {
-                    'to': [num.replace('-', '') for num in self.sms_to_numbers],
-                    'from': self.sms_from_number.replace('-', ''),
-                    'text': sms_content
-                }
+                'messages': messages
             }
 
-            # API 키 인증 방식 (간단한 방식)
-            auth_headers = {
-                'Content-Type': 'application/json'
-            }
-
-            # CoolSMS는 간단한 API 키 방식 사용
-            response = requests.post(
-                url,
-                headers=auth_headers,
-                json=data,
-                auth=(self.sms_api_key, self.sms_api_secret)
-            )
+            response = requests.post(url, headers=headers, json=data)
 
             if response.status_code == 200:
                 print(f"SMS 전송 성공: {len(self.sms_to_numbers)}명")
