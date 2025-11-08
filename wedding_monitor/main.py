@@ -92,7 +92,7 @@ class WeddingMonitorGUI:
 
         # ========== 날짜 모니터링 설정 (왼쪽 열) ==========
         date_frame = ttk.Frame(self.scrollable_frame, relief='solid', borderwidth=1, padding=(5, 5))
-        date_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(0, 3))
+        date_frame.grid(row=0, column=0, rowspan=2, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(0, 3))
 
         # 제목
         ttk.Label(date_frame, text="📅 모니터링 설정", font=('', 9, 'bold')).grid(
@@ -158,7 +158,7 @@ class WeddingMonitorGUI:
 
         # ========== 시간대별 동작 설정 (왼쪽 열) ==========
         time_frame = ttk.Frame(self.scrollable_frame, relief='solid', borderwidth=1, padding=(5, 5))
-        time_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(0, 3))
+        time_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(0, 3))
 
         # 제목
         ttk.Label(time_frame, text="⏰ 시간대별 설정", font=('', 9, 'bold')).grid(
@@ -210,7 +210,7 @@ class WeddingMonitorGUI:
 
         # ========== 자동 예약 정보 (오른쪽 열) ==========
         auto_frame = ttk.Frame(self.scrollable_frame, relief='solid', borderwidth=1, padding=(5, 5))
-        auto_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
+        auto_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         # 제목
         ttk.Label(auto_frame, text="📝 예약 정보", font=('', 9, 'bold')).grid(
@@ -225,7 +225,7 @@ class WeddingMonitorGUI:
 
         # ========== 알림 설정 (오른쪽 열) ==========
         notif_frame = ttk.Frame(self.scrollable_frame, relief='solid', borderwidth=1, padding=(5, 5))
-        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
+        notif_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         # 제목
         ttk.Label(notif_frame, text="🔔 알림 설정", font=('', 9, 'bold')).grid(
@@ -255,7 +255,7 @@ class WeddingMonitorGUI:
 
         # ========== SMS 설정 (오른쪽 열) ==========
         sms_frame = ttk.Frame(self.scrollable_frame, relief='solid', borderwidth=1, padding=(5, 5))
-        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=0, padx=(3, 0))
+        sms_frame.grid(row=2, column=1, sticky=(tk.W, tk.E, tk.N), pady=2, padx=(3, 0))
 
         # 제목
         ttk.Label(sms_frame, text="📨 SMS 설정", font=('', 9, 'bold')).grid(
