@@ -443,6 +443,21 @@ class WeddingChecker:
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
             print(f"[DEBUG] 전체 캘린더의 ._schedule div 개수: {len(all_schedules)}")
 
+            # 디버깅: 해당 월의 모든 key 출력 (처음 10개만)
+            year_month = date_str[:7]  # "2026-05"
+            print(f"[DEBUG] {year_month}월의 모든 key 샘플 (최대 10개):")
+            sample_count = 0
+            for schedule_div in all_schedules:
+                try:
+                    key = schedule_div.get_attribute('key')
+                    if key and year_month in key:
+                        print(f"[DEBUG]   key 샘플: {key}")
+                        sample_count += 1
+                        if sample_count >= 10:
+                            break
+                except:
+                    continue
+
             # key 속성에 날짜 포함된 스케줄 찾기 (예: "2026-05-09" in key)
             matched_schedules = []
             for schedule_div in all_schedules:
@@ -450,7 +465,7 @@ class WeddingChecker:
                     key = schedule_div.get_attribute('key')
                     if key and date_str in key:
                         matched_schedules.append(schedule_div)
-                        print(f"[DEBUG] 매칭된 스케줄 발견: key={key[:80]}...")
+                        print(f"[DEBUG] 매칭된 스케줄 발견: key={key}")
                 except:
                     continue
 
