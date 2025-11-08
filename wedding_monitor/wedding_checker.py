@@ -439,19 +439,16 @@ class WeddingChecker:
             # 전체 캘린더에서 ._schedule div 찾기 (key 속성에 날짜 정보 포함)
             print(f"[DEBUG] 날짜 {date_str} 파싱 시작, 활성화된 시간대: {time_slots}")
 
-            # 목표 날짜를 YYYYMMDD 형식으로 변환 (예: "20260307")
-            target_date_key = f"{year:04d}{month:02d}{day:02d}"
-            print(f"[DEBUG] 찾을 날짜 키: {target_date_key}")
-
             # 모든 ._schedule div 찾기
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
             print(f"[DEBUG] 전체 캘린더의 ._schedule div 개수: {len(all_schedules)}")
 
+            # key 속성에 날짜 포함된 스케줄 찾기 (예: "2026-05-09" in key)
             matched_schedules = []
             for schedule_div in all_schedules:
                 try:
                     key = schedule_div.get_attribute('key')
-                    if key and target_date_key in key:
+                    if key and date_str in key:
                         matched_schedules.append(schedule_div)
                         print(f"[DEBUG] 매칭된 스케줄 발견: key={key[:80]}...")
                 except:
