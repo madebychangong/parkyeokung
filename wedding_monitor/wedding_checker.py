@@ -255,21 +255,21 @@ class WeddingChecker:
                     dates_by_month[year_month] = []
                 dates_by_month[year_month].append(date_str)
 
-            # 네이버 캘린더 URL
-            calendar_url = "https://calendar.naver.com/publicCalendar?publishedKey=d435b7f03ff45dc2504e74adc1938d28665aa33926a644bf2117b77a87e13d72028903d0e9f0ecae"
+            # 네이버 캘린더 기본 URL
+            base_calendar_url = "https://calendar.naver.com/publicCalendar?publishedKey=d435b7f03ff45dc2504e74adc1938d28665aa33926a644bf2117b77a87e13d72028903d0e9f0ecae"
 
             # 월별로 페이지 로드
             for year_month, dates in dates_by_month.items():
                 try:
                     year, month = year_month.split('-')
 
-                    print(f"이라운지 캘린더 접속: {year}년 {month}월")
-                    driver.get(calendar_url)
-                    time.sleep(2)
+                    # 해당 년월로 이동하는 URL (year, month 파라미터 추가)
+                    calendar_url = f"{base_calendar_url}&year={year}&month={month}"
 
-                    # 해당 년월로 이동 (필요시)
-                    # 현재 달력이 자동으로 현재 월을 보여주므로, 다른 월이면 이동 필요
-                    # 여기서는 단순화를 위해 현재 표시된 달력 파싱
+                    print(f"이라운지 캘린더 접속: {year}년 {month}월")
+                    print(f"URL: {calendar_url}")
+                    driver.get(calendar_url)
+                    time.sleep(3)  # 로딩 시간 증가
 
                     # 해당 월의 모든 날짜 파싱
                     for date_str in dates:
@@ -299,10 +299,15 @@ class WeddingChecker:
         """이라운지 특정 날짜의 예약 상황 파싱"""
         try:
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            year = date_obj.year
+            month = date_obj.month
             day = date_obj.day
+
+            print(f"[DEBUG] 이라운지 날짜 파싱: {year}년 {month}월 {day}일")
 
             # 모든 날짜 셀 찾기
             date_cells = driver.find_elements(By.CSS_SELECTOR, "td[dayindex]")
+            print(f"[DEBUG] 찾은 날짜 셀 개수: {len(date_cells)}")
 
             target_cell = None
             for cell in date_cells:
@@ -315,13 +320,20 @@ class WeddingChecker:
                     if day_num == day:
                         # disable 클래스가 없는지 확인 (다른 월 날짜 제외)
                         cell_classes = cell.get_attribute('class')
-                        if 'disable' not in (cell_classes or ''):
+                        is_disabled = 'disable' in (cell_classes or '')
+                        print(f"[DEBUG] {day}일 셀 발견, disable={is_disabled}, classes={cell_classes}")
+
+                        if not is_disabled:
                             target_cell = cell
+                            print(f"[DEBUG] ✅ {day}일 타겟 셀 확정")
                             break
+                        else:
+                            print(f"[DEBUG] {day}일은 다른 월의 날짜 (disable 클래스 있음)")
                 except:
                     continue
 
             if not target_cell:
+                print(f"[DEBUG] ❌ {date_str}의 타겟 셀을 찾지 못함")
                 return None
 
             # 해당 셀의 dayindex 가져오기
@@ -428,20 +440,31 @@ class WeddingChecker:
 
                 print(f"[DEBUG] {date_str} {time_key}: 이전={prev_status}, 현재={status}")
 
-                # 예약완료 → 예약가능 변화 감지
-                if prev_status == "예약완료" and status == "예약가능":
-                    print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 예약완료 → 예약가능")
-                    changes.append({
-                        'venue': 'research_park',
-                        'venue_name': '서울대 연구공원 웨딩홀',
-                        'date': date_str,
-                        'time': time_key,
-                        'change': '예약완료 → 예약가능'
-                    })
-                elif status == "예약가능" and prev_status is None:
-                    print(f"[DEBUG] ⚠️  처음 발견한 예약가능 (이전 데이터 없음): {date_str} {time_key}")
-                elif status == "예약가능" and prev_status == "예약가능":
-                    print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
+                # 예약가능 상태 감지 (처음 발견 또는 변화)
+                if status == "예약가능":
+                    if prev_status is None:
+                        # 처음 발견한 예약가능 - 알림 보내기
+                        print(f"[DEBUG] ✅ 처음 발견한 예약가능! {date_str} {time_key}")
+                        changes.append({
+                            'venue': 'research_park',
+                            'venue_name': '서울대 연구공원 웨딩홀',
+                            'date': date_str,
+                            'time': time_key,
+                            'change': '예약가능 발견'
+                        })
+                    elif prev_status == "예약완료":
+                        # 예약완료 → 예약가능 변화 - 알림 보내기
+                        print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 예약완료 → 예약가능")
+                        changes.append({
+                            'venue': 'research_park',
+                            'venue_name': '서울대 연구공원 웨딩홀',
+                            'date': date_str,
+                            'time': time_key,
+                            'change': '예약완료 → 예약가능'
+                        })
+                    else:
+                        # 예약가능 유지 - 알림 안 보내기
+                        print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
 
         # 이라운지 변화 확인
         current_el = current_data.get('elounge', {})
@@ -456,20 +479,31 @@ class WeddingChecker:
 
                 print(f"[DEBUG] {date_str} {time_key}: 이전={prev_status}, 현재={status}")
 
-                # 완료 → 가능 변화 감지
-                if prev_status == "완료" and status == "가능":
-                    print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 완료 → 가능")
-                    changes.append({
-                        'venue': 'elounge',
-                        'venue_name': '서울대 이라운지',
-                        'date': date_str,
-                        'time': time_key,
-                        'change': '완료 → 가능'
-                    })
-                elif status == "가능" and prev_status is None:
-                    print(f"[DEBUG] ⚠️  처음 발견한 예약가능 (이전 데이터 없음): {date_str} {time_key}")
-                elif status == "가능" and prev_status == "가능":
-                    print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
+                # 예약가능 상태 감지 (처음 발견 또는 변화)
+                if status == "가능":
+                    if prev_status is None:
+                        # 처음 발견한 예약가능 - 알림 보내기
+                        print(f"[DEBUG] ✅ 처음 발견한 예약가능! {date_str} {time_key}")
+                        changes.append({
+                            'venue': 'elounge',
+                            'venue_name': '서울대 이라운지',
+                            'date': date_str,
+                            'time': time_key,
+                            'change': '예약가능 발견'
+                        })
+                    elif prev_status == "완료":
+                        # 완료 → 가능 변화 - 알림 보내기
+                        print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 완료 → 가능")
+                        changes.append({
+                            'venue': 'elounge',
+                            'venue_name': '서울대 이라운지',
+                            'date': date_str,
+                            'time': time_key,
+                            'change': '완료 → 가능'
+                        })
+                    else:
+                        # 예약가능 유지 - 알림 안 보내기
+                        print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
 
         print(f"[DEBUG] 총 {len(changes)}개의 변화 감지됨")
         return changes
