@@ -234,10 +234,11 @@ class WeddingChecker:
 
         # Selenium 설정
         chrome_options = Options()
-        chrome_options.add_argument('--headless')
+        # chrome_options.add_argument('--headless')  # 봇 감지 방지를 위해 headless 비활성화
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         driver = None
 
@@ -489,9 +490,11 @@ class WeddingChecker:
 
             # HTML 전체 덤프 (디버깅용)
             page_html = driver.page_source
-            with open(f"/tmp/elounge_debug_{date_str}.html", "w", encoding="utf-8") as f:
+            import os
+            debug_file = os.path.join(os.getcwd(), f"elounge_debug_{date_str}.html")
+            with open(debug_file, "w", encoding="utf-8") as f:
                 f.write(page_html)
-            print(f"[DEBUG] 페이지 HTML 저장됨: /tmp/elounge_debug_{date_str}.html")
+            print(f"[DEBUG] 페이지 HTML 저장됨: {debug_file}")
 
             # 다양한 셀렉터로 시도
             print(f"[DEBUG] 다양한 셀렉터 테스트:")
