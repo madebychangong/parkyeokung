@@ -28,15 +28,7 @@
     }
   },
   "telegram": {
-    "enabled": true,
-    "groom": {
-      "bot_token": "YOUR_TELEGRAM1_BOT_TOKEN_HERE",
-      "chat_id": "YOUR_TELEGRAM1_CHAT_ID_HERE"
-    },
-    "bride": {
-      "bot_token": "YOUR_TELEGRAM2_BOT_TOKEN_HERE",
-      "chat_id": "YOUR_TELEGRAM2_CHAT_ID_HERE"
-    }
+    "enabled": true
   },
   "sms": {
     "enabled": false,

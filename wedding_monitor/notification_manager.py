@@ -33,26 +33,14 @@ class NotificationManager:
             self._init_sms()
 
     def _init_telegram(self):
-        """텔레그램 봇 2개 초기화"""
-        telegram_config = self.config.get('telegram', {})
+        """텔레그램 봇 초기화 (하드코딩)"""
+        # 하드코딩된 텔레그램 정보
+        self.bot_token = "8226395653:AAELjJQhqoQYHIRGC5yrlHL3SAn_U37CNyM"
+        self.chat_id = "-5021213184"
 
-        # 텔레그램 1
-        groom_config = telegram_config.get('groom', {})
-        if groom_config.get('bot_token') and groom_config.get('chat_id'):
-            self.groom_bot = Bot(token=groom_config['bot_token'])
-            self.groom_chat_id = groom_config['chat_id']
-            self.groom_enabled = True
-        else:
-            self.groom_enabled = False
-
-        # 텔레그램 2
-        bride_config = telegram_config.get('bride', {})
-        if bride_config.get('bot_token') and bride_config.get('chat_id'):
-            self.bride_bot = Bot(token=bride_config['bot_token'])
-            self.bride_chat_id = bride_config['chat_id']
-            self.bride_enabled = True
-        else:
-            self.bride_enabled = False
+        # 봇 초기화
+        self.telegram_bot = Bot(token=self.bot_token)
+        self.telegram_bot_enabled = True
 
     def _init_sms(self):
         """SOLAPI (구 CoolSMS) 초기화 (API 정보 하드코딩)"""
@@ -170,34 +158,17 @@ class NotificationManager:
         return success
 
     async def _send_to_all_bots(self, message):
-        """모든 활성화된 봇에게 동시 전송"""
-        tasks = []
-
-        # 텔레그램 1 전송
-        if self.groom_enabled:
-            tasks.append(self._send_telegram_async(
-                self.groom_bot,
-                self.groom_chat_id,
-                f"📱 [텔레그램 1]\n\n{message}"
-            ))
-
-        # 텔레그램 2 전송
-        if self.bride_enabled:
-            tasks.append(self._send_telegram_async(
-                self.bride_bot,
-                self.bride_chat_id,
-                f"📱 [텔레그램 2]\n\n{message}"
-            ))
-
-        if not tasks:
-            print("활성화된 텔레그램 봇이 없습니다.")
+        """텔레그램 그룹방에 메시지 전송"""
+        if not self.telegram_bot_enabled:
+            print("텔레그램 봇이 비활성화되어 있습니다.")
             return False
 
-        # 동시 전송
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # 하나라도 성공하면 True
-        return any(result is True for result in results)
+        # 텔레그램 그룹방에 전송
+        return await self._send_telegram_async(
+            self.telegram_bot,
+            self.chat_id,
+            f"🔔 {message}"
+        )
 
     def format_availability_alert(self, venue_name, date, time, status_change):
         """예약 가능 알림 포맷"""

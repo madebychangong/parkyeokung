@@ -185,40 +185,19 @@ class WeddingMonitorGUI:
             row=0, column=0, sticky=tk.W
         )
 
-        # ========== 알림 설정 (텔레그램 2개) ==========
-        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 텔레그램 설정", padding="10")
+        # ========== 알림 설정 ==========
+        notif_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 알림 설정", padding="10")
         notif_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
 
-        # 2열 레이아웃으로 변경
-        # 텔레그램 1
-        ttk.Label(notif_frame, text="텔레그램 1", font=('', 9, 'bold')).grid(
-            row=0, column=0, sticky=tk.W, padx=5, pady=2
+        # 텔레그램 활성화 체크박스
+        self.telegram_enabled_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(notif_frame, text="텔레그램 알림 사용", variable=self.telegram_enabled_var).grid(
+            row=0, column=0, sticky=tk.W, padx=5, pady=5
         )
-
-        ttk.Label(notif_frame, text="Bot Token:").grid(row=1, column=0, sticky=tk.W, padx=5)
-        self.groom_bot_token = ttk.Entry(notif_frame, width=35)
-        self.groom_bot_token.grid(row=2, column=0, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(notif_frame, text="Chat ID:").grid(row=3, column=0, sticky=tk.W, padx=5)
-        self.groom_chat_id = ttk.Entry(notif_frame, width=35)
-        self.groom_chat_id.grid(row=4, column=0, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        # 텔레그램 2
-        ttk.Label(notif_frame, text="텔레그램 2", font=('', 9, 'bold')).grid(
-            row=0, column=1, sticky=tk.W, padx=5, pady=2
-        )
-
-        ttk.Label(notif_frame, text="Bot Token:").grid(row=1, column=1, sticky=tk.W, padx=5)
-        self.bride_bot_token = ttk.Entry(notif_frame, width=35)
-        self.bride_bot_token.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-
-        ttk.Label(notif_frame, text="Chat ID:").grid(row=3, column=1, sticky=tk.W, padx=5)
-        self.bride_chat_id = ttk.Entry(notif_frame, width=35)
-        self.bride_chat_id.grid(row=4, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
 
         # 확인 주기
         interval_row = ttk.Frame(notif_frame)
-        interval_row.grid(row=5, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        interval_row.grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
 
         ttk.Label(interval_row, text="확인 주기:").pack(side=tk.LEFT, padx=2)
         self.check_interval = ttk.Spinbox(interval_row, from_=1, to=1440, width=5)
@@ -341,9 +320,7 @@ class WeddingMonitorGUI:
                 }
             },
             'telegram': {
-                'enabled': True,
-                'groom': {'bot_token': '', 'chat_id': ''},
-                'bride': {'bot_token': '', 'chat_id': ''}
+                'enabled': True
             },
             'sms': {
                 'enabled': False,
@@ -392,13 +369,7 @@ class WeddingMonitorGUI:
 
         # 텔레그램 설정
         telegram = self.config.get('telegram', {})
-        groom = telegram.get('groom', {})
-        bride = telegram.get('bride', {})
-
-        self.groom_bot_token.insert(0, groom.get('bot_token', ''))
-        self.groom_chat_id.insert(0, groom.get('chat_id', ''))
-        self.bride_bot_token.insert(0, bride.get('bot_token', ''))
-        self.bride_chat_id.insert(0, bride.get('chat_id', ''))
+        self.telegram_enabled_var.set(telegram.get('enabled', True))
 
         # SMS 설정
         sms = self.config.get('sms', {})
@@ -446,15 +417,7 @@ class WeddingMonitorGUI:
                 }
             },
             'telegram': {
-                'enabled': True,
-                'groom': {
-                    'bot_token': self.groom_bot_token.get().strip(),
-                    'chat_id': self.groom_chat_id.get().strip()
-                },
-                'bride': {
-                    'bot_token': self.bride_bot_token.get().strip(),
-                    'chat_id': self.bride_chat_id.get().strip()
-                }
+                'enabled': self.telegram_enabled_var.get()
             },
             'sms': {
                 'enabled': self.sms_enabled_var.get(),
@@ -523,8 +486,9 @@ SOLAPI 연동 테스트 메시지입니다.
         """모니터링 시작"""
         self.save_config()
 
-        if not (self.groom_bot_token.get().strip() or self.bride_bot_token.get().strip()):
-            messagebox.showwarning("경고", "최소 1개의 텔레그램 설정이 필요합니다.")
+        # 텔레그램 또는 SMS 중 하나는 활성화되어야 함
+        if not (self.telegram_enabled_var.get() or self.sms_enabled_var.get()):
+            messagebox.showwarning("경고", "텔레그램 또는 SMS 중 최소 1개를 활성화하세요.")
             return
 
         self.monitoring = True
