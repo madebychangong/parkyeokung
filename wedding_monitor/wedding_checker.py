@@ -459,6 +459,20 @@ class WeddingChecker:
             # 전체 캘린더에서 ._schedule div 찾기 (key 속성에 날짜 정보 포함)
             print(f"[DEBUG] 날짜 {date_str} 파싱 시작, 활성화된 시간대: {time_slots}")
 
+            # 스크롤 전 개수 확인
+            schedules_before = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
+            print(f"[DEBUG] 스크롤 전 ._schedule div 개수: {len(schedules_before)}")
+
+            # 페이지 스크롤 (모든 일정 로드)
+            print(f"[DEBUG] 페이지 스크롤 시작...")
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+
+            # 스크롤 후 개수 확인
+            schedules_after = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
+            print(f"[DEBUG] 스크롤 후 ._schedule div 개수: {len(schedules_after)}")
+            print(f"[DEBUG] 스크롤로 추가 로드된 개수: {len(schedules_after) - len(schedules_before)}")
+
             # 모든 ._schedule div 찾기
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
             print(f"[DEBUG] 전체 캘린더의 ._schedule div 개수: {len(all_schedules)}")
