@@ -473,6 +473,19 @@ class WeddingChecker:
             print(f"[DEBUG] 스크롤 후 ._schedule div 개수: {len(schedules_after)}")
             print(f"[DEBUG] 스크롤로 추가 로드된 개수: {len(schedules_after) - len(schedules_before)}")
 
+            # HTML 전체 덤프 (디버깅용)
+            page_html = driver.page_source
+            with open(f"/tmp/elounge_debug_{date_str}.html", "w", encoding="utf-8") as f:
+                f.write(page_html)
+            print(f"[DEBUG] 페이지 HTML 저장됨: /tmp/elounge_debug_{date_str}.html")
+
+            # 다양한 셀렉터로 시도
+            print(f"[DEBUG] 다양한 셀렉터 테스트:")
+            print(f"[DEBUG]   div._schedule: {len(driver.find_elements(By.CSS_SELECTOR, 'div._schedule'))}")
+            print(f"[DEBUG]   div[class*='_schedule']: {len(driver.find_elements(By.CSS_SELECTOR, 'div[class*=\"_schedule\"]'))}")
+            print(f"[DEBUG]   div[key]: {len(driver.find_elements(By.CSS_SELECTOR, 'div[key]'))}")
+            print(f"[DEBUG]   a[title]: {len(driver.find_elements(By.CSS_SELECTOR, 'a[title]'))}")
+
             # 모든 ._schedule div 찾기
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
             print(f"[DEBUG] 전체 캘린더의 ._schedule div 개수: {len(all_schedules)}")
