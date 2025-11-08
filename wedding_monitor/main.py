@@ -221,14 +221,49 @@ class WeddingMonitorGUI:
         interval_row.grid(row=5, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
 
         ttk.Label(interval_row, text="확인 주기:").pack(side=tk.LEFT, padx=2)
-        self.check_interval = ttk.Spinbox(interval_row, from_=1, to=24, width=5)
-        self.check_interval.set(1)
+        self.check_interval = ttk.Spinbox(interval_row, from_=1, to=1440, width=5)
+        self.check_interval.set(5)
         self.check_interval.pack(side=tk.LEFT, padx=2)
-        ttk.Label(interval_row, text="시간마다").pack(side=tk.LEFT, padx=2)
+        ttk.Label(interval_row, text="분마다").pack(side=tk.LEFT, padx=2)
+
+        # ========== SMS 설정 ==========
+        sms_frame = ttk.LabelFrame(self.scrollable_frame, text="📨 SMS 설정 (선택사항)", padding="10")
+        sms_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+
+        # SMS 활성화 체크박스
+        self.sms_enabled_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(sms_frame, text="SMS 알림 사용", variable=self.sms_enabled_var).grid(
+            row=0, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5
+        )
+
+        # 네이버 클라우드 설정
+        ttk.Label(sms_frame, text="Service ID:").grid(row=1, column=0, sticky=tk.W, padx=5)
+        self.sms_service_id = ttk.Entry(sms_frame, width=35)
+        self.sms_service_id.grid(row=1, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(sms_frame, text="Access Key:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        self.sms_access_key = ttk.Entry(sms_frame, width=35)
+        self.sms_access_key.grid(row=2, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(sms_frame, text="Secret Key:").grid(row=3, column=0, sticky=tk.W, padx=5)
+        self.sms_secret_key = ttk.Entry(sms_frame, width=35, show="*")
+        self.sms_secret_key.grid(row=3, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(sms_frame, text="발신번호:").grid(row=4, column=0, sticky=tk.W, padx=5)
+        self.sms_from_number = ttk.Entry(sms_frame, width=35)
+        self.sms_from_number.grid(row=4, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(sms_frame, text="수신번호 (쉼표 구분):").grid(row=5, column=0, sticky=tk.W, padx=5)
+        self.sms_to_numbers = ttk.Entry(sms_frame, width=35)
+        self.sms_to_numbers.grid(row=5, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
+
+        ttk.Label(sms_frame, text="예: 010-1234-5678, 010-9876-5432", font=('', 8), foreground='gray').grid(
+            row=6, column=1, sticky=tk.W, padx=5
+        )
 
         # ========== 제어 버튼 ==========
         control_frame = ttk.Frame(self.scrollable_frame)
-        control_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        control_frame.grid(row=5, column=0, columnspan=2, pady=10)
 
         self.start_btn = ttk.Button(control_frame, text="시작하기", command=self.start_monitoring, width=12)
         self.start_btn.grid(row=0, column=0, padx=5)
@@ -241,7 +276,7 @@ class WeddingMonitorGUI:
 
         # ========== 모니터링 상태 ==========
         status_frame = ttk.LabelFrame(self.scrollable_frame, text="📊 상태", padding="10")
-        status_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        status_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
 
         self.status_label = ttk.Label(status_frame, text="상태: 대기중")
         self.status_label.grid(row=0, column=0, sticky=tk.W)
@@ -254,7 +289,7 @@ class WeddingMonitorGUI:
 
         # ========== 알림 기록 ==========
         log_frame = ttk.LabelFrame(self.scrollable_frame, text="🔔 로그", padding="10")
-        log_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        log_frame.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=10, width=90)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
@@ -321,7 +356,15 @@ class WeddingMonitorGUI:
                 'groom': {'bot_token': '', 'chat_id': ''},
                 'bride': {'bot_token': '', 'chat_id': ''}
             },
-            'check_interval_hours': 1
+            'sms': {
+                'enabled': False,
+                'service_id': '',
+                'access_key': '',
+                'secret_key': '',
+                'from_number': '',
+                'to_numbers': []
+            },
+            'check_interval_minutes': 5
         }
 
     def apply_config(self):
@@ -372,8 +415,18 @@ class WeddingMonitorGUI:
         self.bride_bot_token.insert(0, bride.get('bot_token', ''))
         self.bride_chat_id.insert(0, bride.get('chat_id', ''))
 
+        # SMS 설정
+        sms = self.config.get('sms', {})
+        self.sms_enabled_var.set(sms.get('enabled', False))
+        self.sms_service_id.insert(0, sms.get('service_id', ''))
+        self.sms_access_key.insert(0, sms.get('access_key', ''))
+        self.sms_secret_key.insert(0, sms.get('secret_key', ''))
+        self.sms_from_number.insert(0, sms.get('from_number', ''))
+        to_numbers = sms.get('to_numbers', [])
+        self.sms_to_numbers.insert(0, ', '.join(to_numbers))
+
         # 확인 주기
-        self.check_interval.set(self.config.get('check_interval_hours', 1))
+        self.check_interval.set(self.config.get('check_interval_minutes', 5))
 
     def save_config(self):
         """설정 저장"""
@@ -417,7 +470,15 @@ class WeddingMonitorGUI:
                     'chat_id': self.bride_chat_id.get().strip()
                 }
             },
-            'check_interval_hours': int(self.check_interval.get())
+            'sms': {
+                'enabled': self.sms_enabled_var.get(),
+                'service_id': self.sms_service_id.get().strip(),
+                'access_key': self.sms_access_key.get().strip(),
+                'secret_key': self.sms_secret_key.get().strip(),
+                'from_number': self.sms_from_number.get().strip(),
+                'to_numbers': [num.strip() for num in self.sms_to_numbers.get().split(',') if num.strip()]
+            },
+            'check_interval_minutes': int(self.check_interval.get())
         }
 
         try:
@@ -460,7 +521,7 @@ class WeddingMonitorGUI:
         notifier = NotificationManager(self.config)
         auto_reserve = AutoReservation()
 
-        check_interval_hours = self.config.get('check_interval_hours', 1)
+        check_interval_minutes = self.config.get('check_interval_minutes', 5)
 
         while self.monitoring:
             try:
@@ -492,10 +553,10 @@ class WeddingMonitorGUI:
 
                 self.update_status("대기 중...")
 
-                next_check_time = datetime.now() + timedelta(hours=check_interval_hours)
+                next_check_time = datetime.now() + timedelta(minutes=check_interval_minutes)
                 self.next_check_label.config(text=f"다음 확인: {next_check_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-                for _ in range(check_interval_hours * 3600):
+                for _ in range(check_interval_minutes * 60):
                     if not self.monitoring:
                         break
                     time.sleep(1)

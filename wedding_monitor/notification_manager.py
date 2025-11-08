@@ -1,12 +1,17 @@
 """
 통합 알림 관리자
-텔레그램 2개 동시 알림 발송
+텔레그램 2개 동시 알림 발송 + 네이버클라우드 SMS
 """
 
 import asyncio
 from telegram import Bot
 from telegram.error import TelegramError
 from datetime import datetime
+import requests
+import time
+import hmac
+import hashlib
+import base64
 
 
 class NotificationManager:
@@ -18,10 +23,15 @@ class NotificationManager:
     def __init__(self, config):
         self.config = config
         self.telegram_enabled = config.get('telegram', {}).get('enabled', True)
+        self.sms_enabled = config.get('sms', {}).get('enabled', False)
 
         # 텔레그램 봇 2개 초기화
         if self.telegram_enabled:
             self._init_telegram()
+
+        # SMS 초기화
+        if self.sms_enabled:
+            self._init_sms()
 
     def _init_telegram(self):
         """텔레그램 봇 2개 초기화"""
@@ -45,6 +55,74 @@ class NotificationManager:
         else:
             self.bride_enabled = False
 
+    def _init_sms(self):
+        """네이버 클라우드 SMS 초기화"""
+        sms_config = self.config.get('sms', {})
+        self.sms_service_id = sms_config.get('service_id', '')
+        self.sms_access_key = sms_config.get('access_key', '')
+        self.sms_secret_key = sms_config.get('secret_key', '')
+        self.sms_from_number = sms_config.get('from_number', '')
+        self.sms_to_numbers = sms_config.get('to_numbers', [])  # 리스트
+
+    def _send_naver_sms(self, message):
+        """네이버 클라우드 SMS 전송"""
+        if not all([self.sms_service_id, self.sms_access_key, self.sms_secret_key,
+                    self.sms_from_number, self.sms_to_numbers]):
+            print("SMS 설정이 완전하지 않습니다.")
+            return False
+
+        try:
+            # 타임스탬프 생성
+            timestamp = str(int(time.time() * 1000))
+
+            # URI
+            uri = f"/sms/v2/services/{self.sms_service_id}/messages"
+
+            # 서명 생성
+            sign_message = f"POST {uri}\n{timestamp}\n{self.sms_access_key}"
+            signature = base64.b64encode(
+                hmac.new(
+                    self.sms_secret_key.encode(),
+                    sign_message.encode(),
+                    hashlib.sha256
+                ).digest()
+            ).decode()
+
+            # API 요청
+            url = f"https://sens.apigw.ntruss.com{uri}"
+            headers = {
+                'Content-Type': 'application/json; charset=utf-8',
+                'x-ncp-apigw-timestamp': timestamp,
+                'x-ncp-apigw-api-key-id': self.sms_access_key,
+                'x-ncp-apigw-signature-v2': signature
+            }
+
+            # SMS 내용 (80자 제한)
+            sms_content = message[:80] if len(message) > 80 else message
+
+            # 여러 수신자에게 전송
+            messages = [{'to': number} for number in self.sms_to_numbers]
+
+            data = {
+                'type': 'SMS',
+                'from': self.sms_from_number,
+                'content': sms_content,
+                'messages': messages
+            }
+
+            response = requests.post(url, headers=headers, json=data)
+
+            if response.status_code == 202:
+                print(f"SMS 전송 성공: {len(self.sms_to_numbers)}명")
+                return True
+            else:
+                print(f"SMS 전송 실패: {response.status_code} - {response.text}")
+                return False
+
+        except Exception as e:
+            print(f"SMS 전송 오류: {e}")
+            return False
+
     async def _send_telegram_async(self, bot, chat_id, message):
         """비동기 텔레그램 메시지 전송"""
         try:
@@ -60,18 +138,27 @@ class NotificationManager:
 
     def send_notification(self, message, notification_type='info'):
         """
-        통합 알림 전송 (텔레그램 2개 동시 발송)
+        통합 알림 전송 (텔레그램 + SMS)
 
         Args:
             message: 알림 메시지
             notification_type: 'info' | 'critical'
         """
-        if not self.telegram_enabled:
-            print("텔레그램 알림이 비활성화되어 있습니다.")
-            return False
+        success = True
 
-        # 비동기 전송을 위한 이벤트 루프 실행
-        return asyncio.run(self._send_to_all_bots(message))
+        # 텔레그램 전송
+        if self.telegram_enabled:
+            telegram_success = asyncio.run(self._send_to_all_bots(message))
+            success &= telegram_success
+        else:
+            print("텔레그램 알림이 비활성화되어 있습니다.")
+
+        # SMS 전송 (활성화된 경우)
+        if self.sms_enabled:
+            sms_success = self._send_naver_sms(message)
+            success &= sms_success
+
+        return success
 
     async def _send_to_all_bots(self, message):
         """모든 활성화된 봇에게 동시 전송"""

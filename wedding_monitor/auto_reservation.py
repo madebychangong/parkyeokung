@@ -17,18 +17,18 @@ import time
 # 예약 정보 설정 (여기를 수정하세요!)
 # ============================================
 RESERVATION_INFO = {
-    # 예약자 1 정보
-    "groom_name": "홍길동",
-    "groom_tel": "010-1234-5678",
-    "groom_email": "groom@email.com",
+    # 신랑 정보
+    "groom_name": "황태준",
+    "groom_tel": "010-3096-0329",
+    "groom_email": "hwangt222@naver.com",
 
-    # 예약자 2 정보
-    "bride_name": "김영희",
-    "bride_tel": "010-5678-1234",
-    "bride_email": "bride@email.com",
+    # 신부 정보
+    "bride_name": "박여경",
+    "bride_tel": "010-3895-8291",
+    "bride_email": "finnkaypee@gmail.com",
 
     # 예상 인원: "250~300명" / "300~400명" / "400명 이상"
-    "expected_people": "300~400명",
+    "expected_people": "250~300명",
 
     # 기타 문의사항 (선택)
     "etc_message": "예약 확인 부탁드립니다."
