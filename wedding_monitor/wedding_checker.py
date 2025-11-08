@@ -23,8 +23,23 @@ class WeddingChecker:
     """예식장 예약 상황 확인 및 변화 감지"""
 
     def __init__(self, data_file='wedding_data.json'):
-        self.data_file = data_file
+        # AppData 폴더에 데이터 저장
+        app_data_dir = self._get_app_data_dir()
+        self.data_file = os.path.join(app_data_dir, data_file)
         self.previous_data = self.load_data()
+
+    @staticmethod
+    def _get_app_data_dir():
+        """앱 데이터 저장 디렉토리 경로 가져오기"""
+        if os.name == 'nt':  # Windows
+            base_dir = os.environ.get('APPDATA', os.path.expanduser('~'))
+            app_dir = os.path.join(base_dir, 'WeddingMonitor')
+        else:  # Linux, Mac
+            app_dir = os.path.expanduser('~/.wedding_monitor')
+
+        # 디렉토리가 없으면 생성
+        os.makedirs(app_dir, exist_ok=True)
+        return app_dir
 
     def load_data(self):
         """이전 데이터 로드"""
@@ -482,35 +497,9 @@ class WeddingChecker:
             # 전체 캘린더에서 ._schedule div 찾기 (key 속성에 날짜 정보 포함)
             print(f"[DEBUG] 날짜 {date_str} 파싱 시작, 활성화된 시간대: {time_slots}")
 
-            # 스크롤 전 개수 확인
-            schedules_before = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
-            print(f"[DEBUG] 스크롤 전 ._schedule div 개수: {len(schedules_before)}")
-
             # 페이지 스크롤 (모든 일정 로드)
-            print(f"[DEBUG] 페이지 스크롤 시작...")
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
-
-            # 스크롤 후 개수 확인
-            schedules_after = driver.find_elements(By.CSS_SELECTOR, "div._schedule")
-            print(f"[DEBUG] 스크롤 후 ._schedule div 개수: {len(schedules_after)}")
-            print(f"[DEBUG] 스크롤로 추가 로드된 개수: {len(schedules_after) - len(schedules_before)}")
-
-            # HTML 전체 덤프 (디버깅용)
-            page_html = driver.page_source
-            import os
-            debug_file = os.path.join(os.getcwd(), f"elounge_debug_{date_str}.html")
-            with open(debug_file, "w", encoding="utf-8") as f:
-                f.write(page_html)
-            print(f"[DEBUG] 페이지 HTML 저장됨: {debug_file}")
-
-            # 다양한 셀렉터로 시도
-            print(f"[DEBUG] 다양한 셀렉터 테스트:")
-            print(f"[DEBUG]   div._schedule: {len(driver.find_elements(By.CSS_SELECTOR, 'div._schedule'))}")
-            selector_class = 'div[class*="_schedule"]'
-            print(f"[DEBUG]   div[class*='_schedule']: {len(driver.find_elements(By.CSS_SELECTOR, selector_class))}")
-            print(f"[DEBUG]   div[key]: {len(driver.find_elements(By.CSS_SELECTOR, 'div[key]'))}")
-            print(f"[DEBUG]   a[title]: {len(driver.find_elements(By.CSS_SELECTOR, 'a[title]'))}")
 
             # 모든 ._schedule div 찾기
             all_schedules = driver.find_elements(By.CSS_SELECTOR, "div._schedule")

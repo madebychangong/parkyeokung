@@ -24,12 +24,26 @@ class WeddingMonitorGUI:
         self.root.title("예식장 예약 모니터링 프로그램")
         self.root.geometry("800x600")
 
-        self.config_file = "config.json"
+        # AppData 폴더에 설정 저장
+        self.config_file = self._get_config_path()
         self.monitoring = False
         self.monitoring_thread = None
 
         # 설정 로드
         self.config = self.load_config()
+
+    @staticmethod
+    def _get_config_path():
+        """설정 파일 경로 가져오기"""
+        if os.name == 'nt':  # Windows
+            base_dir = os.environ.get('APPDATA', os.path.expanduser('~'))
+            app_dir = os.path.join(base_dir, 'WeddingMonitor')
+        else:  # Linux, Mac
+            app_dir = os.path.expanduser('~/.wedding_monitor')
+
+        # 디렉토리가 없으면 생성
+        os.makedirs(app_dir, exist_ok=True)
+        return os.path.join(app_dir, 'config.json')
 
         # 스타일 설정 (LabelFrame 여백 최소화)
         self.setup_styles()
