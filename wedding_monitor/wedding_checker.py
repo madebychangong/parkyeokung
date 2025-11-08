@@ -482,7 +482,8 @@ class WeddingChecker:
             # 다양한 셀렉터로 시도
             print(f"[DEBUG] 다양한 셀렉터 테스트:")
             print(f"[DEBUG]   div._schedule: {len(driver.find_elements(By.CSS_SELECTOR, 'div._schedule'))}")
-            print(f"[DEBUG]   div[class*='_schedule']: {len(driver.find_elements(By.CSS_SELECTOR, 'div[class*=\"_schedule\"]'))}")
+            selector_class = 'div[class*="_schedule"]'
+            print(f"[DEBUG]   div[class*='_schedule']: {len(driver.find_elements(By.CSS_SELECTOR, selector_class))}")
             print(f"[DEBUG]   div[key]: {len(driver.find_elements(By.CSS_SELECTOR, 'div[key]'))}")
             print(f"[DEBUG]   a[title]: {len(driver.find_elements(By.CSS_SELECTOR, 'a[title]'))}")
 
