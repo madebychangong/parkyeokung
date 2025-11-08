@@ -255,21 +255,25 @@ class WeddingChecker:
                     dates_by_month[year_month] = []
                 dates_by_month[year_month].append(date_str)
 
-            # 네이버 캘린더 기본 URL
-            base_calendar_url = "https://calendar.naver.com/publicCalendar?publishedKey=d435b7f03ff45dc2504e74adc1938d28665aa33926a644bf2117b77a87e13d72028903d0e9f0ecae"
+            # 네이버 캘린더 URL
+            calendar_url = "https://calendar.naver.com/publicCalendar?publishedKey=d435b7f03ff45dc2504e74adc1938d28665aa33926a644bf2117b77a87e13d72028903d0e9f0ecae"
 
-            # 월별로 페이지 로드
+            # 캘린더 페이지 접속 (첫 1회만)
+            print(f"이라운지 캘린더 접속")
+            driver.get(calendar_url)
+            time.sleep(3)
+
+            # 월별로 처리
             for year_month, dates in dates_by_month.items():
                 try:
-                    year, month = year_month.split('-')
+                    target_year, target_month = year_month.split('-')
+                    target_year = int(target_year)
+                    target_month = int(target_month)
 
-                    # 해당 년월로 이동하는 URL (year, month 파라미터 추가)
-                    calendar_url = f"{base_calendar_url}&year={year}&month={month}"
+                    print(f"목표 월: {target_year}년 {target_month}월")
 
-                    print(f"이라운지 캘린더 접속: {year}년 {month}월")
-                    print(f"URL: {calendar_url}")
-                    driver.get(calendar_url)
-                    time.sleep(3)  # 로딩 시간 증가
+                    # 현재 표시된 월로 이동
+                    self._navigate_to_month(driver, target_year, target_month)
 
                     # 해당 월의 모든 날짜 파싱
                     for date_str in dates:
@@ -294,6 +298,92 @@ class WeddingChecker:
                 driver.quit()
 
         return result
+
+    def _navigate_to_month(self, driver, target_year, target_month):
+        """네이버 캘린더에서 목표 년월로 이동"""
+        max_attempts = 24  # 최대 24개월(2년) 이동
+
+        for attempt in range(max_attempts):
+            try:
+                # 현재 표시된 년월 확인
+                # 네이버 캘린더의 년월 표시 요소 찾기 (여러 가능성 시도)
+                current_year_month_text = None
+
+                # 시도 1: .calendar_title 같은 클래스
+                try:
+                    year_month_elem = driver.find_element(By.CSS_SELECTOR, ".month_title, .calendar_title, .title")
+                    current_year_month_text = year_month_elem.text.strip()
+                except:
+                    pass
+
+                # 시도 2: h2, h3 태그
+                if not current_year_month_text:
+                    try:
+                        year_month_elem = driver.find_element(By.CSS_SELECTOR, "h2, h3")
+                        current_year_month_text = year_month_elem.text.strip()
+                    except:
+                        pass
+
+                # 시도 3: span 태그에서 "년" 포함된 것 찾기
+                if not current_year_month_text:
+                    try:
+                        spans = driver.find_elements(By.TAG_NAME, "span")
+                        for span in spans:
+                            text = span.text.strip()
+                            if "년" in text and "월" in text:
+                                current_year_month_text = text
+                                break
+                    except:
+                        pass
+
+                if not current_year_month_text:
+                    print(f"[DEBUG] 현재 년월 표시를 찾을 수 없음")
+                    break
+
+                print(f"[DEBUG] 현재 표시된 년월: {current_year_month_text}")
+
+                # "2025년 5월" 형식에서 년월 추출
+                import re
+                match = re.search(r'(\d{4})년\s*(\d{1,2})월', current_year_month_text)
+                if not match:
+                    print(f"[DEBUG] 년월 파싱 실패: {current_year_month_text}")
+                    break
+
+                current_year = int(match.group(1))
+                current_month = int(match.group(2))
+
+                print(f"[DEBUG] 현재: {current_year}년 {current_month}월, 목표: {target_year}년 {target_month}월")
+
+                # 목표 월에 도달했는지 확인
+                if current_year == target_year and current_month == target_month:
+                    print(f"[DEBUG] ✅ 목표 월에 도달: {target_year}년 {target_month}월")
+                    return True
+
+                # 월 비교 (년월을 숫자로 변환)
+                current_ym = current_year * 12 + current_month
+                target_ym = target_year * 12 + target_month
+
+                if current_ym < target_ym:
+                    # 다음 달로 이동
+                    print(f"[DEBUG] 다음 달 버튼 클릭")
+                    next_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_next")
+                    next_btn.click()
+                    time.sleep(1)
+                else:
+                    # 이전 달로 이동
+                    print(f"[DEBUG] 이전 달 버튼 클릭")
+                    prev_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_prev")
+                    prev_btn.click()
+                    time.sleep(1)
+
+            except Exception as e:
+                print(f"[DEBUG] 월 이동 중 오류: {e}")
+                import traceback
+                traceback.print_exc()
+                break
+
+        print(f"[DEBUG] ❌ 목표 월로 이동 실패 (최대 시도 횟수 초과)")
+        return False
 
     def _parse_elounge_date(self, driver, date_str, time_slots):
         """이라운지 특정 날짜의 예약 상황 파싱"""
