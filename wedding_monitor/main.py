@@ -80,6 +80,18 @@ class WeddingMonitorGUI:
         # 설정 로드
         self.config = self.load_config()
 
+        # 스타일 설정 (LabelFrame 여백 최소화)
+        self.setup_styles()
+
+        # 스크롤 가능한 메인 프레임 생성
+        self.create_scrollable_frame()
+
+        # GUI 구성
+        self.create_widgets()
+
+        # 설정 적용
+        self.apply_config()
+
     @staticmethod
     def _get_config_path():
         """설정 파일 경로 가져오기"""
@@ -92,18 +104,6 @@ class WeddingMonitorGUI:
         # 디렉토리가 없으면 생성
         os.makedirs(app_dir, exist_ok=True)
         return os.path.join(app_dir, 'config.json')
-
-        # 스타일 설정 (LabelFrame 여백 최소화)
-        self.setup_styles()
-
-        # 스크롤 가능한 메인 프레임 생성
-        self.create_scrollable_frame()
-
-        # GUI 구성
-        self.create_widgets()
-
-        # 설정 적용
-        self.apply_config()
 
     def setup_styles(self):
         """ttk 스타일 설정"""
