@@ -12,7 +12,7 @@ import os
 import threading
 import time
 import sys
-import uuid
+import psutil
 import socket
 from wedding_checker import WeddingChecker
 from auto_reservation import AutoReservation, RESERVATION_INFO
@@ -27,6 +27,7 @@ def check_authorization():
     ALLOWED_MACS = [
         "7c:f3:cd:37:de:78",  # 첫 번째 컴퓨터 (changong)
         "c8:7f:54:a0:14:11",  # 두 번째 컴퓨터
+        "d8:43:ae:24:52:55",  # 세 번째 컴퓨터
     ]
 
     # 허용된 IP 주소 목록 (선택사항)
@@ -38,9 +39,34 @@ def check_authorization():
     if not ALLOWED_MACS:
         return True
 
-    # 현재 컴퓨터의 MAC 주소 가져오기
-    current_mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
-                            for elements in range(0,2*6,2)][::-1])
+    # 현재 컴퓨터의 실제 MAC 주소 가져오기 (psutil 사용)
+    current_mac = None
+    try:
+        # 활성화된 네트워크 인터페이스만 조회
+        nics = psutil.net_if_addrs()
+        stats = psutil.net_if_stats()
+
+        for interface_name, interface_addresses in nics.items():
+            # 활성화된 인터페이스만
+            if interface_name in stats and stats[interface_name].isup:
+                for addr in interface_addresses:
+                    # MAC 주소 (AF_LINK)
+                    if addr.family == psutil.AF_LINK:
+                        mac = addr.address.lower().replace('-', ':')
+                        # 유효한 MAC인지 확인
+                        if mac and mac != '00:00:00:00:00:00':
+                            # loopback 제외
+                            if 'lo' not in interface_name.lower():
+                                current_mac = mac
+                                break
+            if current_mac:
+                break
+    except Exception as e:
+        print(f"[오류] MAC 주소 조회 실패: {e}")
+        current_mac = "Unknown"
+
+    if not current_mac:
+        current_mac = "Unknown"
 
     # 현재 컴퓨터의 IP 주소 가져오기
     try:

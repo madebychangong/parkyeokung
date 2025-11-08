@@ -2,14 +2,35 @@
 현재 컴퓨터의 MAC 주소와 IP 주소를 확인하는 스크립트
 """
 
-import uuid
+import psutil
 import socket
 
 def get_mac_address():
-    """MAC 주소 가져오기"""
-    mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff)
-                    for elements in range(0,2*6,2)][::-1])
-    return mac
+    """
+    활성 네트워크 인터페이스의 실제 MAC 주소 가져오기
+    uuid.getnode() 대신 psutil 사용
+    """
+    try:
+        # 활성화된 네트워크 인터페이스만 조회
+        nics = psutil.net_if_addrs()
+        stats = psutil.net_if_stats()
+
+        for interface_name, interface_addresses in nics.items():
+            # 활성화된 인터페이스만
+            if interface_name in stats and stats[interface_name].isup:
+                for addr in interface_addresses:
+                    # MAC 주소 (AF_LINK)
+                    if addr.family == psutil.AF_LINK:
+                        mac = addr.address.upper().replace('-', ':')
+                        # 유효한 MAC인지 확인
+                        if mac and mac != '00:00:00:00:00:00':
+                            # loopback 제외
+                            if 'lo' not in interface_name.lower():
+                                return mac
+    except Exception as e:
+        print(f"[오류] MAC 주소 조회 실패: {e}")
+
+    return "Unknown"
 
 def get_ip_address():
     """IP 주소 가져오기"""
