@@ -22,7 +22,7 @@ class WeddingMonitorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("예식장 예약 모니터링 프로그램")
-        self.root.geometry("1000x600")
+        self.root.geometry("800x600")
 
         self.config_file = "config.json"
         self.monitoring = False
@@ -61,7 +61,7 @@ class WeddingMonitorGUI:
         scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
 
         # 스크롤 가능한 프레임
-        self.scrollable_frame = ttk.Frame(canvas, padding="5")
+        self.scrollable_frame = ttk.Frame(canvas, padding="2")
 
         # 2열 레이아웃을 위한 column weight 설정
         self.scrollable_frame.columnconfigure(0, weight=1)
