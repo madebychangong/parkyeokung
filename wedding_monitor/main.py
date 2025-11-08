@@ -47,23 +47,12 @@ class WeddingMonitorGUI:
         """ttk 스타일 설정"""
         style = ttk.Style()
 
-        # Compact LabelFrame 스타일 생성 - 여백 최소화
+        # Compact LabelFrame 스타일 생성
         style.configure('Compact.TLabelframe',
                        borderwidth=1,
-                       relief='solid',
-                       labelmargins=0)  # 라벨 주변 여백 제거
+                       relief='solid')
         style.configure('Compact.TLabelframe.Label',
-                       font=('', 9),
-                       padding=0)  # 라�el 패딩 제거
-
-        # LabelFrame 내부 레이아웃 설정
-        style.layout('Compact.TLabelframe', [
-            ('Labelframe.border', {'sticky': 'nswe', 'children': [
-                ('Labelframe.padding', {'sticky': 'nswe', 'children': [
-                    ('Labelframe.label', {'side': 'top', 'sticky': 'w'}),
-                ]})
-            ]})
-        ])
+                       font=('', 9))
 
     def create_scrollable_frame(self):
         """스크롤 가능한 메인 프레임 생성"""
@@ -77,6 +66,10 @@ class WeddingMonitorGUI:
         # 2열 레이아웃을 위한 column weight 설정
         self.scrollable_frame.columnconfigure(0, weight=1)
         self.scrollable_frame.columnconfigure(1, weight=1)
+
+        # row 간격 최소화
+        for i in range(10):  # row 0~9
+            self.scrollable_frame.rowconfigure(i, minsize=0, weight=0)
 
         self.scrollable_frame.bind(
             "<Configure>",
