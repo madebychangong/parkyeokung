@@ -332,17 +332,32 @@ class WeddingChecker:
 
             date_status = {}
 
-            # 각 셀에서 ._schedule div 찾기
+            # 각 셀에서 title 속성이 있는 모든 링크 찾기
             print(f"[DEBUG] 날짜 {date_str} 파싱 시작, dayindex={dayindex}, 활성화된 시간대: {time_slots}")
 
             for cell in schedule_cells:
-                schedules = cell.find_elements(By.CSS_SELECTOR, "._schedule")
-                print(f"[DEBUG] 셀에서 찾은 일정 개수: {len(schedules)}")
+                # ._schedule과 .info 둘 다 찾기 (구조가 다를 수 있음)
+                schedules = cell.find_elements(By.CSS_SELECTOR, "._schedule, .info")
+                print(f"[DEBUG] 셀에서 찾은 일정 개수 (._schedule + .info): {len(schedules)}")
 
+                # 직접 a 태그도 찾기
+                links = cell.find_elements(By.CSS_SELECTOR, "a[title]")
+                print(f"[DEBUG] 셀에서 찾은 a[title] 링크 개수: {len(links)}")
+
+                # 모든 title 속성이 있는 링크 처리
+                all_links = []
                 for schedule in schedules:
                     try:
-                        # title 속성에서 시간과 상태 파싱
                         link = schedule.find_element(By.TAG_NAME, "a")
+                        all_links.append(link)
+                    except:
+                        pass
+
+                # 직접 찾은 링크도 추가
+                all_links.extend(links)
+
+                for link in all_links:
+                    try:
                         title = link.get_attribute('title')  # 예: "11:00 완료" 또는 "17:00 가능"
 
                         print(f"[DEBUG] 파싱한 title: '{title}'")
@@ -364,12 +379,16 @@ class WeddingChecker:
                                 print(f"[DEBUG] 시간대 '{time_str}'가 비활성화되어 있거나 없음, 스킵")
                                 continue
 
-                            # "완료" = 예약완료, "가능" = 예약가능
-                            date_status[time_str] = "완료" if status == "완료" else "가능"
-                            print(f"[DEBUG] date_status에 추가: {time_str} = {date_status[time_str]}")
+                            # 중복 체크 후 추가 (같은 링크를 여러 번 찾을 수 있음)
+                            if time_str not in date_status:
+                                # "완료" = 예약완료, "가능" = 예약가능
+                                date_status[time_str] = "완료" if status == "완료" else "가능"
+                                print(f"[DEBUG] date_status에 추가: {time_str} = {date_status[time_str]}")
+                            else:
+                                print(f"[DEBUG] {time_str}는 이미 추가됨, 스킵")
 
                     except Exception as e:
-                        print(f"[DEBUG] 일정 파싱 중 오류: {e}")
+                        print(f"[DEBUG] 링크 파싱 중 오류: {e}")
                         import traceback
                         traceback.print_exc()
                         continue
@@ -400,12 +419,18 @@ class WeddingChecker:
         current_rp = current_data.get('research_park', {})
         previous_rp = self.previous_data.get('research_park', {})
 
+        print(f"[DEBUG] 연구공원 변화 감지 시작")
+        print(f"[DEBUG] 이전 데이터 존재 여부: {bool(previous_rp)}")
+
         for date_str, times in current_rp.items():
             for time_key, status in times.items():
                 prev_status = previous_rp.get(date_str, {}).get(time_key)
 
+                print(f"[DEBUG] {date_str} {time_key}: 이전={prev_status}, 현재={status}")
+
                 # 예약완료 → 예약가능 변화 감지
                 if prev_status == "예약완료" and status == "예약가능":
+                    print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 예약완료 → 예약가능")
                     changes.append({
                         'venue': 'research_park',
                         'venue_name': '서울대 연구공원 웨딩홀',
@@ -413,17 +438,27 @@ class WeddingChecker:
                         'time': time_key,
                         'change': '예약완료 → 예약가능'
                     })
+                elif status == "예약가능" and prev_status is None:
+                    print(f"[DEBUG] ⚠️  처음 발견한 예약가능 (이전 데이터 없음): {date_str} {time_key}")
+                elif status == "예약가능" and prev_status == "예약가능":
+                    print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
 
         # 이라운지 변화 확인
         current_el = current_data.get('elounge', {})
         previous_el = self.previous_data.get('elounge', {})
 
+        print(f"[DEBUG] 이라운지 변화 감지 시작")
+        print(f"[DEBUG] 이전 데이터 존재 여부: {bool(previous_el)}")
+
         for date_str, times in current_el.items():
             for time_key, status in times.items():
                 prev_status = previous_el.get(date_str, {}).get(time_key)
 
+                print(f"[DEBUG] {date_str} {time_key}: 이전={prev_status}, 현재={status}")
+
                 # 완료 → 가능 변화 감지
                 if prev_status == "완료" and status == "가능":
+                    print(f"[DEBUG] ✅ 변화 감지! {date_str} {time_key}: 완료 → 가능")
                     changes.append({
                         'venue': 'elounge',
                         'venue_name': '서울대 이라운지',
@@ -431,7 +466,12 @@ class WeddingChecker:
                         'time': time_key,
                         'change': '완료 → 가능'
                     })
+                elif status == "가능" and prev_status is None:
+                    print(f"[DEBUG] ⚠️  처음 발견한 예약가능 (이전 데이터 없음): {date_str} {time_key}")
+                elif status == "가능" and prev_status == "가능":
+                    print(f"[DEBUG] ℹ️  예약가능 유지 (변화 없음): {date_str} {time_key}")
 
+        print(f"[DEBUG] 총 {len(changes)}개의 변화 감지됨")
         return changes
 
     def get_target_dates(self, config):
