@@ -400,47 +400,13 @@ class WeddingChecker:
                     print(f"[DEBUG] 다음 달 버튼 클릭")
                     next_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_next")
                     next_btn.click()
-                    time.sleep(0.5)  # 클릭 후 짧은 대기
-                    # 모든 일정이 로드될 때까지 대기 (점진적 렌더링 대응)
-                    print(f"[DEBUG] 일정 로딩 대기 중...")
-                    prev_count = 0
-                    stable_count = 0
-                    for i in range(10):  # 최대 5초 (0.5초 × 10)
-                        time.sleep(0.5)
-                        current_count = len(driver.find_elements(By.CSS_SELECTOR, "div._schedule"))
-                        print(f"[DEBUG]   {i*0.5}초: {current_count}개 일정")
-                        if current_count == prev_count:
-                            stable_count += 1
-                            if stable_count >= 3:  # 1.5초 동안 변화 없으면 완료
-                                print(f"[DEBUG] 일정 로딩 완료: {current_count}개")
-                                break
-                        else:
-                            stable_count = 0
-                        prev_count = current_count
-                    time.sleep(0.5)  # 브라우저 창이 띄워지므로 대기 시간 단축
+                    time.sleep(0.5)  # 브라우저가 띄워지므로 간단한 대기만으로 충분
                 else:
                     # 이전 달로 이동
                     print(f"[DEBUG] 이전 달 버튼 클릭")
                     prev_btn = driver.find_element(By.CSS_SELECTOR, "button.btn_prev")
                     prev_btn.click()
-                    time.sleep(0.5)  # 클릭 후 짧은 대기
-                    # 모든 일정이 로드될 때까지 대기 (점진적 렌더링 대응)
-                    print(f"[DEBUG] 일정 로딩 대기 중...")
-                    prev_count = 0
-                    stable_count = 0
-                    for i in range(10):  # 최대 5초 (0.5초 × 10)
-                        time.sleep(0.5)
-                        current_count = len(driver.find_elements(By.CSS_SELECTOR, "div._schedule"))
-                        print(f"[DEBUG]   {i*0.5}초: {current_count}개 일정")
-                        if current_count == prev_count:
-                            stable_count += 1
-                            if stable_count >= 3:  # 1.5초 동안 변화 없으면 완료
-                                print(f"[DEBUG] 일정 로딩 완료: {current_count}개")
-                                break
-                        else:
-                            stable_count = 0
-                        prev_count = current_count
-                    time.sleep(0.5)  # 브라우저 창이 띄워지므로 대기 시간 단축
+                    time.sleep(0.5)  # 브라우저가 띄워지므로 간단한 대기만으로 충분
 
             except Exception as e:
                 print(f"[DEBUG] 월 이동 중 오류: {e}")
