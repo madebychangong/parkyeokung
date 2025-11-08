@@ -42,8 +42,8 @@
     "enabled": false,
     "api_key": "YOUR_COOLSMS_API_KEY",
     "api_secret": "YOUR_COOLSMS_API_SECRET",
-    "from_number": "010-1234-5678",
-    "to_numbers": ["010-1234-5678", "010-9876-5432"]
+    "from_number": "010-6454-5181",
+    "to_numbers": ["010-3096-0329", "010-3895-8291"]
   },
   "check_interval_minutes": 5
 }
