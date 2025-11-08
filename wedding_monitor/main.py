@@ -715,7 +715,7 @@ SOLAPI 연동 테스트 메시지입니다.
 
         elif venue == 'elounge':
             alert_msg = notifier.format_availability_alert(
-                venue_name, date_formatted, time_label, status_change
+                venue_name, date_formatted, time_label, status_change, venue_code='elounge'
             )
             notifier.send_notification(alert_msg)
             self.log_message(f"[예약 가능] {venue_name} {date_formatted} {time_label}")

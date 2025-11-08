@@ -170,84 +170,98 @@ class NotificationManager:
             f"🔔 {message}"
         )
 
-    def format_availability_alert(self, venue_name, date, time, status_change):
-        """예약 가능 알림 포맷"""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    def format_availability_alert(self, venue_name, date, time, status_change, venue_code=None):
+        """예약 가능 알림 포맷 (45자 이내)"""
+        # 날짜 축약: "2026년 11월 01일 (일)" -> "11/01(일)"
+        import re
+        date_match = re.search(r'(\d+)월 (\d+)일 \((.)\)', date)
+        if date_match:
+            month, day, weekday = date_match.groups()
+            date_short = f"{month}/{day}({weekday})"
+        else:
+            date_short = date[:10]  # fallback
 
-        message = f"""
-━━━━━━━━━━━━━━━━
-🔔 예약 가능 발견!
+        # 시간 축약: "오전 11시" -> "오전11시" (공백 제거)
+        time_short = time.replace(' ', '')
 
-📍 {venue_name}
-📅 {date}
-⏰ {time}
+        # 예식장 이름 축약
+        if '연구공원' in venue_name:
+            venue_short = '연구공원'
+        elif '이라운지' in venue_name:
+            venue_short = '이라운지'
+        else:
+            venue_short = venue_name[:5]
 
-상태 변경: {status_change}
+        # 이라운지는 전화번호 포함
+        if '이라운지' in venue_name or venue_code == 'elounge':
+            message = f"{date_short} {time_short} {venue_short} 가능 ☎02-875-7761"
+        else:
+            message = f"{date_short} {time_short} {venue_short} 예약가능"
 
-발견 시각: {current_time}
-━━━━━━━━━━━━━━━━
-"""
-        return message.strip()
+        return message
 
     def format_auto_reservation_start(self, venue_name, date, time, person1_name, person2_name):
-        """자동 예약 시작 알림 포맷"""
-        message = f"""
-━━━━━━━━━━━━━━━━
-⏳ 자동 예약 시도 중...
+        """자동 예약 시작 알림 포맷 (45자 이내)"""
+        # 날짜 축약
+        import re
+        date_match = re.search(r'(\d+)월 (\d+)일 \((.)\)', date)
+        if date_match:
+            month, day, weekday = date_match.groups()
+            date_short = f"{month}/{day}({weekday})"
+        else:
+            date_short = date[:10]
 
-📍 {venue_name}
-📅 {date}
-⏰ {time}
+        # 시간 축약
+        time_short = time.replace(' ', '')
 
-예약자: {person1_name}, {person2_name}
+        # 예식장 축약
+        venue_short = '연구공원' if '연구공원' in venue_name else venue_name[:5]
 
-잠시만 기다려주세요...
-━━━━━━━━━━━━━━━━
-"""
-        return message.strip()
+        message = f"{date_short} {time_short} {venue_short} 자동예약 시도중"
+        return message
 
     def format_auto_reservation_success(self, venue_name, date, time, person1_info, person2_info):
-        """자동 예약 성공 알림 포맷"""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """자동 예약 성공 알림 포맷 (45자 이내)"""
+        # 날짜 축약
+        import re
+        date_match = re.search(r'(\d+)월 (\d+)일 \((.)\)', date)
+        if date_match:
+            month, day, weekday = date_match.groups()
+            date_short = f"{month}/{day}({weekday})"
+        else:
+            date_short = date[:10]
 
-        message = f"""
-━━━━━━━━━━━━━━━━
-✅ 예약 신청 완료!
+        # 시간 축약
+        time_short = time.replace(' ', '')
 
-📍 {venue_name}
-📅 {date}
-⏰ {time}
+        # 예식장 축약
+        venue_short = '연구공원' if '연구공원' in venue_name else venue_name[:5]
 
-신청 정보:
-👤 {person1_info['name']} ({person1_info['tel']})
-👤 {person2_info['name']} ({person2_info['tel']})
-
-⚠️ 중요!
-직원 확인 후 전화 연락 예정
-계약금 입금 전까지는 예약 미확정
-
-신청 시각: {current_time}
-━━━━━━━━━━━━━━━━
-"""
-        return message.strip()
+        message = f"{date_short} {time_short} {venue_short} 예약신청 완료!"
+        return message
 
     def format_auto_reservation_failure(self, venue_name, date, time, reason):
-        """자동 예약 실패 알림 포맷"""
-        message = f"""
-━━━━━━━━━━━━━━━━
-❌ 예약 신청 실패
+        """자동 예약 실패 알림 포맷 (45자 이내)"""
+        # 날짜 축약
+        import re
+        date_match = re.search(r'(\d+)월 (\d+)일 \((.)\)', date)
+        if date_match:
+            month, day, weekday = date_match.groups()
+            date_short = f"{month}/{day}({weekday})"
+        else:
+            date_short = date[:10]
 
-📍 {venue_name}
-📅 {date}
-⏰ {time}
+        # 시간 축약
+        time_short = time.replace(' ', '')
 
-실패 사유: {reason}
+        # 예식장 축약
+        venue_short = '연구공원' if '연구공원' in venue_name else venue_name[:5]
 
-🔄 수동으로 재시도해주세요
-🌐 https://www.snuwedding.co.kr/snu/reservation
-━━━━━━━━━━━━━━━━
-"""
-        return message.strip()
+        # 실패 사유 축약 (20자 이내)
+        reason_short = reason[:20] if len(reason) > 20 else reason
+
+        message = f"{date_short} {time_short} {venue_short} 예약실패"
+        return message
 
 
 # 테스트 코드
