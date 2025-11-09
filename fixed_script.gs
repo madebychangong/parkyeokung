@@ -27,7 +27,9 @@ const CONFIG = {
     COMPLETE: 2,        // B열 - 결제완료
     DATE: 3,            // C열 - 날짜
     TITLE: 4,           // D열 - 일정명
-    STAFF: 5            // E열 - 담당자
+    STAFF: 5,           // E열 - 담당자
+    EVENT_ID: 6,        // F열 - 팀 캘린더 이벤트ID (숨김)
+    PERSONAL_EVENT_ID: 7  // G열 - 개인 캘린더 이벤트ID (숨김)
   },
 
   STAFF_COLS: {
@@ -442,36 +444,25 @@ function deleteEvent(calendarId, eventId, rowNumber) {
   }
 }
 
-// ===== 결제창에서 일정 찾기 (날짜+일정명+담당자로 매칭) =====
-function findScheduleRow(dateValue, title, staff) {
+// ===== 결제창에서 일정 찾기 (이벤트ID로 매칭) =====
+function findScheduleRowByEventId(eventId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const scheduleSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
     const scheduleData = scheduleSheet.getDataRange().getValues();
 
-    // 날짜만 비교 (시간 제거)
-    const searchDate = new Date(dateValue);
-    const searchDateStr = Utilities.formatDate(searchDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-
-    Logger.log('🔍 일정 검색 시작: ' + title + ' (' + staff + ') / 날짜: ' + searchDateStr);
+    Logger.log('🔍 이벤트ID로 일정 검색: ' + eventId);
 
     for (let i = 1; i < scheduleData.length; i++) {
-      const rowStartDate = scheduleData[i][CONFIG.SCHEDULE_COLS.START_DATE - 1];
-      if (!rowStartDate) continue;
+      const rowEventId = scheduleData[i][CONFIG.SCHEDULE_COLS.EVENT_ID - 1];
 
-      const rowDateStr = Utilities.formatDate(new Date(rowStartDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      const rowTitle = scheduleData[i][CONFIG.SCHEDULE_COLS.TITLE - 1];
-      const rowStaff = scheduleData[i][CONFIG.SCHEDULE_COLS.STAFF - 1];
-
-      Logger.log('  검사중 ' + (i+1) + '행: ' + rowDateStr + ' / ' + rowTitle + ' / ' + rowStaff);
-
-      if (rowDateStr === searchDateStr && rowTitle === title && rowStaff === staff) {
+      if (rowEventId === eventId) {
         Logger.log('✅ 일정 찾음: ' + (i + 1) + '행');
         return i + 1; // 행번호 반환
       }
     }
 
-    Logger.log('⚠️ 일정을 찾을 수 없음: ' + title + ' (' + staff + ')');
+    Logger.log('⚠️ 일정을 찾을 수 없음 (이벤트ID: ' + eventId + ')');
     return null;
 
   } catch(e) {
@@ -480,30 +471,25 @@ function findScheduleRow(dateValue, title, staff) {
   }
 }
 
-// ===== 결제창에서 행 삭제 =====
-function deleteFromPaymentSheet(dateValue, title, staff) {
+// ===== 결제창에서 행 삭제 (이벤트ID로 매칭) =====
+function deleteFromPaymentSheetByEventId(eventId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
     const paymentData = paymentSheet.getDataRange().getValues();
 
-    // 날짜 범위 문자열로 검색 (예: "2025-01-15 ~ 2025-01-17")
+    // 뒤에서부터 검색 (삭제 시 인덱스 변경 방지)
     for (let i = paymentData.length - 1; i >= 1; i--) {
-      const rowDateStr = paymentData[i][CONFIG.PAYMENT_COLS.DATE - 1];
-      const rowTitle = paymentData[i][CONFIG.PAYMENT_COLS.TITLE - 1];
-      const rowStaff = paymentData[i][CONFIG.PAYMENT_COLS.STAFF - 1];
+      const rowEventId = paymentData[i][CONFIG.PAYMENT_COLS.EVENT_ID - 1];
 
-      // 날짜 문자열에 시작일이 포함되어 있는지 확인
-      const searchDateStr = Utilities.formatDate(new Date(dateValue), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-
-      if (rowDateStr && rowDateStr.includes(searchDateStr) && rowTitle === title && rowStaff === staff) {
+      if (rowEventId === eventId) {
         paymentSheet.deleteRow(i + 1);
-        Logger.log('✅ 결제창에서 행 삭제 완료: ' + (i + 1) + '행');
+        Logger.log('✅ 결제창에서 행 삭제 완료: ' + (i + 1) + '행 (이벤트ID: ' + eventId + ')');
         return true;
       }
     }
 
-    Logger.log('⚠️ 결제창에서 해당 행을 찾지 못함');
+    Logger.log('⚠️ 결제창에서 해당 행을 찾지 못함 (이벤트ID: ' + eventId + ')');
     return false;
 
   } catch(e) {
@@ -512,7 +498,7 @@ function deleteFromPaymentSheet(dateValue, title, staff) {
   }
 }
 
-// ===== 결제창에 자동 추가 =====
+// ===== 결제창에 자동 추가 (이벤트ID 포함) =====
 function addToPaymentSheet(rowData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -522,9 +508,11 @@ function addToPaymentSheet(rowData) {
     const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
     const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
     const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+    const eventId = rowData[CONFIG.SCHEDULE_COLS.EVENT_ID - 1];
+    const personalEventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
 
-    if (!startDate || !endDate || !title || !staff) {
-      Logger.log('⚠️ 결제창 추가 실패: 필수 값 누락');
+    if (!startDate || !endDate || !title || !staff || !eventId) {
+      Logger.log('⚠️ 결제창 추가 실패: 필수 값 누락 (이벤트ID 필요)');
       return;
     }
 
@@ -541,39 +529,38 @@ function addToPaymentSheet(rowData) {
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.DATE).setValue(dateRange);
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.TITLE).setValue(title);
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.STAFF).setValue(staff);
+    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.EVENT_ID).setValue(eventId);
+    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID).setValue(personalEventId);
 
-    Logger.log('✅ 결제창 추가 완료: ' + title + ' (' + dateRange + ')');
+    Logger.log('✅ 결제창 추가 완료: ' + title + ' (이벤트ID: ' + eventId + ')');
 
   } catch(e) {
     Logger.log('❌ 결제창 추가 오류: ' + e.message);
   }
 }
 
-// ===== 결제창에 없으면 추가 (중복 방지) =====
+// ===== 결제창에 없으면 추가 (중복 방지 - 이벤트ID로 확인) =====
 function addToPaymentSheetIfNotExists(rowData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
 
-    const startDate = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
-    const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-    const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+    const eventId = rowData[CONFIG.SCHEDULE_COLS.EVENT_ID - 1];
 
-    if (!startDate || !title || !staff) {
+    if (!eventId) {
+      Logger.log('⚠️ 이벤트ID 없음 - 결제창 추가 건너뜀');
       return;
     }
 
-    // 이미 존재하는지 확인
+    // 이미 존재하는지 확인 (이벤트ID로)
     const paymentData = paymentSheet.getDataRange().getValues();
-    const searchDateStr = Utilities.formatDate(new Date(startDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
     for (let i = 1; i < paymentData.length; i++) {
-      const rowDateStr = paymentData[i][CONFIG.PAYMENT_COLS.DATE - 1];
-      const rowTitle = paymentData[i][CONFIG.PAYMENT_COLS.TITLE - 1];
-      const rowStaff = paymentData[i][CONFIG.PAYMENT_COLS.STAFF - 1];
+      const rowEventId = paymentData[i][CONFIG.PAYMENT_COLS.EVENT_ID - 1];
 
-      if (rowDateStr && rowDateStr.includes(searchDateStr) && rowTitle === title && rowStaff === staff) {
+      if (rowEventId === eventId) {
         // 이미 존재함
+        Logger.log('⏭️ 결제창에 이미 존재: 이벤트ID ' + eventId);
         return;
       }
     }
@@ -676,51 +663,44 @@ function onEdit(e) {
 
   if (row === 1) return;
 
-  // L열 또는 M열이 수정되면 노란색으로 표시
-  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && (col === CONFIG.SCHEDULE_COLS.EVENT_ID || col === CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID)) {
+  // 일정관리 시트에서 L열(팀 이벤트ID)이 채워지면 → 결제창에 자동 추가
+  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col === CONFIG.SCHEDULE_COLS.EVENT_ID) {
+    const rowData = sheet.getRange(row, 1, 1, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValues()[0];
+    const eventId = rowData[CONFIG.SCHEDULE_COLS.EVENT_ID - 1];
+
+    if (eventId) {
+      Logger.log('📝 L열에 이벤트ID 입력됨 → 결제창 추가 시도');
+      addToPaymentSheetIfNotExists(rowData);
+    }
+    return;
+  }
+
+  // M열이 수정되면 경고 (개인 이벤트ID는 자동 생성됨)
+  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col === CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID) {
     markEventIdModified(sheet, row, col);
     return;
   }
 
-  // 일정관리 시트에서 A~E열이 수정되면 결제창 업데이트
-  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col >= CONFIG.SCHEDULE_COLS.START_DATE && col <= CONFIG.SCHEDULE_COLS.STAFF) {
-    const rowData = sheet.getRange(row, 1, 1, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValues()[0];
-    const startDate = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
-    const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
-    const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
-    const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-    const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
-
-    if (startDate && endDate && round && title && staff) {
-      updatePaymentSheet(rowData);
-    }
-    return;
-  }
-
-  // 결제창에서 체크박스가 변경되면 일정관리의 G열 업데이트
+  // 결제창에서 A, B열 체크박스가 변경되면 → 일정관리의 G열 업데이트
   if (sheetName === CONFIG.SHEET_NAMES.PAYMENT && (col === CONFIG.PAYMENT_COLS.TRANSFER || col === CONFIG.PAYMENT_COLS.COMPLETE)) {
     const paymentSheet = sheet;
     const transferChecked = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.TRANSFER).getValue();
     const completeChecked = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.COMPLETE).getValue();
-    const dateStr = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.DATE).getValue();
-    const title = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.TITLE).getValue();
-    const staff = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.STAFF).getValue();
+    const eventId = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.EVENT_ID).getValue();
 
-    if (!dateStr || !title || !staff) return;
+    if (!eventId) {
+      Logger.log('⚠️ 결제창에 이벤트ID 없음 - 일정을 찾을 수 없습니다');
+      return;
+    }
 
     const paymentDone = (transferChecked === true && completeChecked === true);
 
-    let dateValue;
-    if (typeof dateStr === "string" && dateStr.includes(" ~ ")) {
-      dateValue = new Date(dateStr.split(" ~ ")[0]);
-    } else {
-      dateValue = new Date(dateStr);
-    }
-
-    const scheduleRow = findScheduleRow(dateValue, title, staff);
+    // 이벤트ID로 일정관리 행 찾기
+    const scheduleRow = findScheduleRowByEventId(eventId);
     if (scheduleRow) {
       const scheduleSheet = e.source.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
       scheduleSheet.getRange(scheduleRow, CONFIG.SCHEDULE_COLS.PAYMENT_DONE).setValue(paymentDone);
+      Logger.log('✅ 일정관리 G열 업데이트: ' + scheduleRow + '행 → ' + paymentDone);
     }
   }
 }
@@ -885,6 +865,7 @@ function syncAll() {
         if (cancelled === true) {
           if (teamEventId) {
             deleteEvent(CONFIG.CALENDAR_ID, teamEventId, rowNumber);
+            deleteFromPaymentSheetByEventId(teamEventId);
           }
           if (personalEventId) {
             const personalCalId = getStaffPersonalCalendar(staff);
@@ -892,7 +873,6 @@ function syncAll() {
               deleteEvent(personalCalId, personalEventId, rowNumber);
             }
           }
-          deleteFromPaymentSheet(startDate, title, staff);
           scheduleSheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.EVENT_ID).clearContent();
           scheduleSheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).clearContent();
           processed++;
@@ -918,6 +898,11 @@ function syncAll() {
               scheduleSheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newPersonalEventId);
             }
           }
+
+          // 새로 생성된 이벤트를 결제창에도 추가
+          SpreadsheetApp.flush(); // L, M열이 먼저 저장되도록
+          const updatedRowData = scheduleSheet.getRange(rowNumber, 1, 1, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValues()[0];
+          addToPaymentSheetIfNotExists(updatedRowData);
         }
         processed++;
 
