@@ -50,6 +50,8 @@ function onOpen() {
   ui.createMenu('📅 일정 관리')
     .addItem('👥 개인 캘린더 생성', 'createPersonalCalendars')
     .addSeparator()
+    .addItem('➕ 관리자 추가', 'addAdmin')
+    .addSeparator()
     .addItem('🔄 드롭다운 새로고침', 'updateStaffDropdown')
     .addItem('🔄 전체 동기화', 'syncAll')
     .addSeparator()
@@ -82,6 +84,9 @@ function showHelp() {
     '- 새 일정: 캘린더 생성 + 결제창 추가\n' +
     '- 기존 일정: 제목/날짜/결제상태 업데이트\n' +
     '- 취소 일정: 캘린더 + 결제창에서 삭제\n\n' +
+    '【관리자 추가】\n' +
+    '- 메뉴 "➕ 관리자 추가"로 이메일만 입력\n' +
+    '- 스프레드시트 + 모든 캘린더 자동 공유\n\n' +
     '【주의사항】\n' +
     '- L, M열(이벤트ID)은 절대 수정 금지\n' +
     '- M열 수정 시 노란색 경고 표시\n' +
@@ -200,6 +205,129 @@ function systemCheck() {
   } catch(e) {
     ui.alert('❌ 오류', '시스템 점검 실패: ' + e.message, ui.ButtonSet.OK);
     Logger.log('❌ 시스템 점검 오류: ' + e.message);
+  }
+}
+
+// ===== 관리자 추가 =====
+function addAdmin() {
+  const ui = SpreadsheetApp.getUi();
+
+  // 이메일 입력 받기
+  const response = ui.prompt(
+    '➕ 관리자 추가',
+    '추가할 관리자의 이메일 주소를 입력하세요:\n\n' +
+    '자동으로 다음 권한이 부여됩니다:\n' +
+    '• 스프레드시트 편집 권한\n' +
+    '• 팀 캘린더 편집 권한\n' +
+    '• 모든 개인 캘린더 보기 권한',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const email = response.getResponseText().trim();
+
+  if (!email) {
+    ui.alert('❌ 오류', '이메일 주소를 입력해주세요.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // 이메일 형식 간단 검증
+  if (!email.includes('@') || !email.includes('.')) {
+    ui.alert('❌ 오류', '올바른 이메일 형식이 아닙니다.', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const staffSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.STAFF);
+
+    let success = 0;
+    let errors = 0;
+    const errorMessages = [];
+
+    // 1. 스프레드시트 편집자로 추가
+    try {
+      ss.addEditor(email);
+      success++;
+      Logger.log('✅ 스프레드시트 편집자 추가: ' + email);
+    } catch(e) {
+      errors++;
+      errorMessages.push('스프레드시트 권한: ' + e.message);
+      Logger.log('❌ 스프레드시트 권한 추가 실패: ' + e.message);
+    }
+
+    // 2. 팀 캘린더 공유 (편집 권한)
+    try {
+      Calendar.Acl.insert({
+        role: 'writer',
+        scope: {
+          type: 'user',
+          value: email
+        }
+      }, CONFIG.CALENDAR_ID);
+      success++;
+      Logger.log('✅ 팀 캘린더 공유: ' + email);
+    } catch(e) {
+      errors++;
+      errorMessages.push('팀 캘린더: ' + e.message);
+      Logger.log('❌ 팀 캘린더 공유 실패: ' + e.message);
+    }
+
+    // 3. 모든 개인 캘린더 공유 (읽기 권한)
+    const staffData = staffSheet.getDataRange().getValues();
+    let sharedCalendars = 0;
+
+    for (let i = 1; i < staffData.length; i++) {
+      const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
+      const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
+      const personalCalId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
+
+      if (isActive === true && personalCalId) {
+        try {
+          Calendar.Acl.insert({
+            role: 'reader',
+            scope: {
+              type: 'user',
+              value: email
+            }
+          }, personalCalId);
+          sharedCalendars++;
+          Logger.log('✅ 개인 캘린더 공유 (' + name + '): ' + email);
+        } catch(e) {
+          Logger.log('⚠️ 개인 캘린더 공유 실패 (' + name + '): ' + e.message);
+        }
+      }
+    }
+
+    // 결과 메시지
+    let message = `관리자 추가 완료!\n\n이메일: ${email}\n\n`;
+    message += `【부여된 권한】\n`;
+    if (success > 0) {
+      message += `✅ 스프레드시트 편집 권한\n`;
+      message += `✅ 팀 캘린더 편집 권한\n`;
+      if (sharedCalendars > 0) {
+        message += `✅ 개인 캘린더 ${sharedCalendars}개 보기 권한\n`;
+      }
+    }
+
+    if (errors > 0) {
+      message += `\n【오류 발생】\n`;
+      errorMessages.forEach(msg => {
+        message += `⚠️ ${msg}\n`;
+      });
+    }
+
+    message += '\n💡 관리자가 이메일에서 초대를 수락해야 합니다.';
+
+    ui.alert('✅ 완료', message, ui.ButtonSet.OK);
+    Logger.log('✅ 관리자 추가 완료: ' + email + ' (성공: ' + success + ', 오류: ' + errors + ', 캘린더: ' + sharedCalendars + ')');
+
+  } catch(e) {
+    ui.alert('❌ 오류', '관리자 추가 중 오류 발생: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ 관리자 추가 오류: ' + e.message);
   }
 }
 
