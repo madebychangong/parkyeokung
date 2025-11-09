@@ -222,16 +222,11 @@ function protectPaymentColumn() {
     const range = scheduleSheet.getRange('G2:G1000');
     const protection = range.protect().setDescription('결제완료 칸 (결제창관리에서만 수정 가능)');
 
-    // 소유자만 수정 가능
-    const me = Session.getEffectiveUser();
-    protection.addEditor(me);
-    protection.removeEditors(protection.getEditors());
-    if (protection.canDomainEdit()) {
-      protection.setDomainEdit(false);
-    }
+    // 경고만 표시 (스크립트는 수정 가능하도록)
+    protection.setWarningOnly(true);
 
-    ui.alert('✅ 완료', 'G열(결제완료) 보호 설정이 완료되었습니다.\n결제창관리 시트에서만 변경 가능합니다.', ui.ButtonSet.OK);
-    Logger.log('✅ G열 보호 설정 완료');
+    ui.alert('✅ 완료', 'G열(결제완료) 경고 설정이 완료되었습니다.\n수동 수정 시 경고가 표시되며, 결제창관리에서 자동 업데이트됩니다.', ui.ButtonSet.OK);
+    Logger.log('✅ G열 경고 설정 완료');
 
   } catch(e) {
     ui.alert('❌ 오류', 'G열 보호 설정 실패: ' + e.message, ui.ButtonSet.OK);
