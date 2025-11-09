@@ -1,6 +1,6 @@
 // ===== 설정 값 =====
 const CONFIG = {
-  CALENDAR_ID: 'e98e674bd4704d5363ae79a7f6b9af147f93f3741729689226006609198d2103@group.calendar.google.com',
+  CALENDAR_ID: 'af8c11023a2934352642684e298afed25b9794967420f9940f7d351bf253de90@group.calendar.google.com',
 
   SHEET_NAMES: {
     STAFF: '담당자관리',
@@ -314,14 +314,18 @@ function buildEventTitle(staff, round, title, paymentDone) {
     eventTitle += ' [결완]';
   }
 
+  // 제목을 먼저 붙이고
+  eventTitle += ` ${title}`;
+
+  // 라운드는 맨 마지막에 붙임
   if (round) {
     eventTitle += ` [${round}]`;
   }
 
-  eventTitle += ` ${title}`;
-
   return eventTitle;
 }
+
+
 
 // ===== 담당자 색상 가져오기 =====
 function getStaffColor(staffName) {
