@@ -68,19 +68,24 @@ function showHelp() {
   const helpText =
     '📘 사용 설명서\n\n' +
     '【사용 흐름】\n' +
-    '1. 일정관리/결제창관리 시트 수정\n' +
+    '1. 일정관리 시트에 일정 입력\n' +
     '2. 메뉴에서 "🔄 전체 동기화" 클릭\n' +
-    '3. 캘린더 자동 반영!\n\n' +
+    '3. 캘린더 생성 + 결제창에 자동 추가!\n' +
+    '4. 결제창에서 A, B열 체크 → 일정관리 G열 자동 업데이트\n\n' +
     '【필수 입력 항목】\n' +
     '- 시작일, 종료일, 차수, 일정명, 담당자는 반드시 입력\n\n' +
     '【결제 프로세스】\n' +
     '- 결제창관리 시트에서 "결제창 전달" + "결제완료" 둘 다 체크\n' +
-    '- 전체 동기화 실행 시 일정관리 G열 자동 업데이트\n' +
-    '- 캘린더에 [결완] 표시됨\n\n' +
+    '- 일정관리 G열 자동 체크됨\n' +
+    '- 전체 동기화 실행 → 캘린더에 [결완] 표시!\n\n' +
+    '【전체 동기화 기능】\n' +
+    '- 새 일정: 캘린더 생성 + 결제창 추가\n' +
+    '- 기존 일정: 제목/날짜/결제상태 업데이트\n' +
+    '- 취소 일정: 캘린더 + 결제창에서 삭제\n\n' +
     '【주의사항】\n' +
     '- L, M열(이벤트ID)은 절대 수정 금지\n' +
-    '- L, M열이 노란색이면 누군가 수정한 것 (초기화 메뉴로 색상 제거)\n' +
-    '- 전체 동기화 실행 중에는 시트 수정 금지\n\n' +
+    '- M열 수정 시 노란색 경고 표시\n' +
+    '- 일정/결제 정보 변경 후 전체 동기화 필수!\n\n' +
     '【문제 발생 시】\n' +
     '1. "전체 동기화" 버튼 실행\n' +
     '2. "시스템 점검"으로 상태 확인\n\n' +
@@ -411,6 +416,68 @@ function createEvent(calendarId, rowData, rowNumber) {
   } catch(e) {
     Logger.log('❌ 일정 생성 오류: ' + e.message);
     return null;
+  }
+}
+
+// ===== 통합 일정 업데이트 =====
+function updateEvent(calendarId, eventId, rowData, rowNumber) {
+  try {
+    if (!calendarId || !eventId) {
+      Logger.log('⚠️ 캘린더 ID 또는 이벤트 ID 없음');
+      return false;
+    }
+
+    const calendar = CalendarApp.getCalendarById(calendarId);
+    if (!calendar) {
+      Logger.log('❌ 캘린더를 찾을 수 없음: ' + calendarId);
+      return false;
+    }
+
+    const event = calendar.getEventById(eventId);
+    if (!event) {
+      Logger.log('❌ 이벤트를 찾을 수 없음: ' + eventId);
+      return false;
+    }
+
+    // 데이터 추출
+    const startDateValue = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
+    const endDateValue = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
+    const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
+    const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
+    const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+    const content = rowData[CONFIG.SCHEDULE_COLS.CONTENT - 1];
+    const paymentDone = rowData[CONFIG.SCHEDULE_COLS.PAYMENT_DONE - 1];
+
+    // 필수 값 확인
+    if (!startDateValue || !endDateValue || !round || !title || !staff) {
+      Logger.log('❌ 필수 값 누락');
+      return false;
+    }
+
+    // 날짜 파싱 (종일 일정)
+    const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
+
+    // 일정 제목
+    const eventTitle = buildEventTitle(staff, round, title, paymentDone);
+
+    // 일정 설명
+    const description = content || '';
+
+    // 이벤트 업데이트
+    event.setTitle(eventTitle);
+    event.setAllDayDates(startDateTime, endDateTime);
+    event.setDescription(description);
+
+    // 담당자 색상 적용
+    const colorCode = getStaffColor(staff);
+    event.setColor(colorCode.toString());
+
+    Logger.log('✅ 일정 업데이트 완료: ' + eventTitle);
+    return true;
+
+  } catch(e) {
+    Logger.log('❌ 일정 업데이트 오류: ' + e.message);
+    return false;
   }
 }
 
@@ -879,10 +946,22 @@ function syncAll() {
           continue;
         }
 
-        // ===== 중요: L열에 이벤트ID가 이미 있으면 건너뛰기 =====
+        // ===== L열에 이벤트ID가 이미 있으면 기존 이벤트 업데이트 =====
         if (teamEventId) {
-          Logger.log('⏭️ 건너뜀 (이미 생성됨): ' + rowNumber + '행');
-          skipped++;
+          Logger.log('🔄 이미 존재 → 이벤트 업데이트: ' + rowNumber + '행');
+
+          // 팀 캘린더 업데이트
+          updateEvent(CONFIG.CALENDAR_ID, teamEventId, rowData, rowNumber);
+
+          // 개인 캘린더 업데이트
+          if (personalEventId) {
+            const personalCalId = getStaffPersonalCalendar(staff);
+            if (personalCalId) {
+              updateEvent(personalCalId, personalEventId, rowData, rowNumber);
+            }
+          }
+
+          processed++;
           continue;
         }
 
@@ -921,13 +1000,14 @@ function syncAll() {
     // 최종 flush
     SpreadsheetApp.flush();
 
-    let message = `동기화 완료!\n\n생성: ${processed}개\n건너뜀: ${skipped}개`;
+    let message = `동기화 완료!\n\n처리: ${processed}개`;
     if (errors > 0) {
       message += `\n오류: ${errors}개`;
     }
+    message += '\n\n💡 기존 일정은 업데이트, 새 일정은 생성되었습니다.';
 
     ui.alert('✅ 전체 동기화 완료', message, ui.ButtonSet.OK);
-    Logger.log('✅ 전체 동기화 완료: 생성 ' + processed + '개, 건너뜀 ' + skipped + '개, 오류 ' + errors + '개');
+    Logger.log('✅ 전체 동기화 완료: 처리 ' + processed + '개, 오류 ' + errors + '개');
 
   } catch(e) {
     ui.alert('❌ 오류', '전체 동기화 중 오류: ' + e.message, ui.ButtonSet.OK);
