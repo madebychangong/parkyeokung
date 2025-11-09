@@ -449,14 +449,24 @@ function findScheduleRow(dateValue, title, staff) {
     const scheduleSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
     const scheduleData = scheduleSheet.getDataRange().getValues();
 
-    const searchDate = new Date(dateValue).getTime();
+    // 날짜만 비교 (시간 제거)
+    const searchDate = new Date(dateValue);
+    const searchDateStr = Utilities.formatDate(searchDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+    Logger.log('🔍 일정 검색 시작: ' + title + ' (' + staff + ') / 날짜: ' + searchDateStr);
 
     for (let i = 1; i < scheduleData.length; i++) {
-      const rowDate = new Date(scheduleData[i][CONFIG.SCHEDULE_COLS.START_DATE - 1]).getTime();
+      const rowStartDate = scheduleData[i][CONFIG.SCHEDULE_COLS.START_DATE - 1];
+      if (!rowStartDate) continue;
+
+      const rowDateStr = Utilities.formatDate(new Date(rowStartDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
       const rowTitle = scheduleData[i][CONFIG.SCHEDULE_COLS.TITLE - 1];
       const rowStaff = scheduleData[i][CONFIG.SCHEDULE_COLS.STAFF - 1];
 
-      if (rowDate === searchDate && rowTitle === title && rowStaff === staff) {
+      Logger.log('  검사중 ' + (i+1) + '행: ' + rowDateStr + ' / ' + rowTitle + ' / ' + rowStaff);
+
+      if (rowDateStr === searchDateStr && rowTitle === title && rowStaff === staff) {
+        Logger.log('✅ 일정 찾음: ' + (i + 1) + '행');
         return i + 1; // 행번호 반환
       }
     }
