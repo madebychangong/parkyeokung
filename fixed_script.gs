@@ -463,7 +463,8 @@ function parseEventDateTime(startDateValue, endDateValue) {
 function buildEventTitle(staff, round, title, paymentDone) {
   let eventTitle = `[${staff}]`;
 
-  if (paymentDone === true) {
+  // 다양한 형식의 true 값 처리 (true, "TRUE", "true", 1 등)
+  if (paymentDone === true || paymentDone === 'TRUE' || paymentDone === 'true' || paymentDone === 1) {
     eventTitle += ' [결완]';
   }
 
@@ -562,9 +563,6 @@ function createEvent(calendarId, rowData, rowNumber, staffColorMap) {
     const content = rowData[CONFIG.SCHEDULE_COLS.CONTENT - 1];
     const paymentDone = rowData[CONFIG.SCHEDULE_COLS.PAYMENT_DONE - 1];
 
-    // 디버깅: paymentDone 값 확인
-    Logger.log(`🔍 ${rowNumber}행 생성: G열(결제완료) = ${paymentDone}, type = ${typeof paymentDone}`);
-
     if (!startDateValue || !endDateValue || !title || !staff) {
       Logger.log('❌ 필수 값 누락 (시작일, 종료일, 일정명, 담당자는 필수)');
       return null;
@@ -572,7 +570,6 @@ function createEvent(calendarId, rowData, rowNumber, staffColorMap) {
 
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
-    Logger.log(`🔍 생성된 제목: "${eventTitle}"`);
     const description = content || '';
     // 성능 최적화: 캐시에서 색상 가져오기 (없으면 함수 호출)
     const colorCode = staffColorMap ? (staffColorMap[staff] || 1) : getStaffColor(staff);
@@ -615,9 +612,6 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
     const content = rowData[CONFIG.SCHEDULE_COLS.CONTENT - 1];
     const paymentDone = rowData[CONFIG.SCHEDULE_COLS.PAYMENT_DONE - 1];
 
-    // 디버깅: paymentDone 값 확인
-    Logger.log(`🔍 ${rowNumber}행 업데이트: G열(결제완료) = ${paymentDone}, type = ${typeof paymentDone}`);
-
     if (!startDateValue || !endDateValue || !title || !staff) {
       Logger.log('❌ 필수 값 누락');
       return false;
@@ -625,7 +619,6 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
 
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
-    Logger.log(`🔍 생성된 제목: "${eventTitle}"`);
     const description = content || '';
     // 성능 최적화: 캐시에서 색상 가져오기 (없으면 함수 호출)
     const colorCode = staffColorMap ? (staffColorMap[staff] || 1) : getStaffColor(staff);
