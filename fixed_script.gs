@@ -599,6 +599,8 @@ function createEvent(calendarId, rowData, rowNumber, staffColorMap) {
 // ===== 일정 업데이트 (Calendar API) =====
 function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
   try {
+    Logger.log(`⏳ ${rowNumber}행 업데이트 시작...`);
+
     if (!calendarId || !eventId) {
       Logger.log('⚠️ 캘린더 ID 또는 이벤트 ID 없음');
       return false;
@@ -612,6 +614,8 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
     const content = rowData[CONFIG.SCHEDULE_COLS.CONTENT - 1];
     const paymentDone = rowData[CONFIG.SCHEDULE_COLS.PAYMENT_DONE - 1];
 
+    Logger.log(`  📝 제목: ${title}, G열: ${paymentDone}`);
+
     if (!startDateValue || !endDateValue || !title || !staff) {
       Logger.log('❌ 필수 값 누락');
       return false;
@@ -619,6 +623,7 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
 
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
+    Logger.log(`  🏷️ 생성된 제목: ${eventTitle}`);
     const description = content || '';
     // 성능 최적화: 캐시에서 색상 가져오기 (없으면 함수 호출)
     const colorCode = staffColorMap ? (staffColorMap[staff] || 1) : getStaffColor(staff);
@@ -628,6 +633,9 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
     const endDateStr = Utilities.formatDate(endDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
     // Calendar API로 이벤트 업데이트 (patch는 제공된 필드만 업데이트)
+    Logger.log(`  🌐 Calendar API 호출 중... (eventId: ${eventId.substring(0, 10)}...)`);
+    const apiStartTime = new Date().getTime();
+
     Calendar.Events.patch({
       summary: eventTitle,
       description: description,
@@ -636,7 +644,8 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
       colorId: colorCode.toString()
     }, calendarId, eventId);
 
-    Logger.log('✅ 일정 업데이트 완료: ' + eventTitle);
+    const apiDuration = new Date().getTime() - apiStartTime;
+    Logger.log(`  ✅ Calendar API 완료 (${apiDuration}ms): ${eventTitle}`);
     return true;
 
   } catch(e) {
