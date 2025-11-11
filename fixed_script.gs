@@ -514,10 +514,10 @@ function getStaffPersonalCalendar(staffName) {
   return null;
 }
 
-// ===== 이벤트ID로 담당자 찾기 (담당자 변경 감지용) =====
+// ===== 이벤트ID로 담당자 찾기 (담당자 변경 감지용, Calendar API) =====
 function getStaffByEventId(eventId) {
   if (!eventId) return null;
-  
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const staffSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.STAFF);
   const staffData = staffSheet.getDataRange().getValues();
@@ -529,15 +529,12 @@ function getStaffByEventId(eventId) {
 
     if (isActive === true && personalCalId) {
       try {
-        const calendar = CalendarApp.getCalendarById(personalCalId);
-        if (calendar) {
-          const event = calendar.getEventById(eventId);
-          if (event) {
-            return name;
-          }
-        }
+        // Calendar API로 이벤트 조회 (존재하면 성공, 없으면 예외 발생)
+        Calendar.Events.get(personalCalId, eventId);
+        return name;  // 이벤트가 존재하면 담당자명 반환
       } catch(e) {
-        // 계속 검색
+        // 이벤트가 없으면 다음 캘린더 확인
+        continue;
       }
     }
   }
@@ -545,17 +542,11 @@ function getStaffByEventId(eventId) {
   return null;
 }
 
-// ===== 일정 생성 =====
+// ===== 일정 생성 (Calendar API) =====
 function createEvent(calendarId, rowData, rowNumber) {
   try {
     if (!calendarId) {
       Logger.log('⚠️ 캘린더 ID 없음');
-      return null;
-    }
-
-    const calendar = CalendarApp.getCalendarById(calendarId);
-    if (!calendar) {
-      Logger.log('❌ 캘린더를 찾을 수 없음: ' + calendarId);
       return null;
     }
 
@@ -575,16 +566,23 @@ function createEvent(calendarId, rowData, rowNumber) {
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
     const description = content || '';
-
-    const event = calendar.createAllDayEvent(eventTitle, startDateTime, endDateTime, {
-      description: description
-    });
-
     const colorCode = getStaffColor(staff);
-    event.setColor(colorCode.toString());
+
+    // Calendar API 형식으로 날짜 변환 (yyyy-MM-dd)
+    const startDateStr = Utilities.formatDate(startDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const endDateStr = Utilities.formatDate(endDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+    // Calendar API로 이벤트 생성
+    const event = Calendar.Events.insert({
+      summary: eventTitle,
+      description: description,
+      start: { date: startDateStr },
+      end: { date: endDateStr },
+      colorId: colorCode.toString()
+    }, calendarId);
 
     Logger.log('✅ 일정 생성 완료: ' + eventTitle);
-    return event.getId();
+    return event.id;
 
   } catch(e) {
     Logger.log('❌ 일정 생성 오류: ' + e.message);
@@ -592,23 +590,11 @@ function createEvent(calendarId, rowData, rowNumber) {
   }
 }
 
-// ===== 일정 업데이트 =====
+// ===== 일정 업데이트 (Calendar API) =====
 function updateEvent(calendarId, eventId, rowData, rowNumber) {
   try {
     if (!calendarId || !eventId) {
       Logger.log('⚠️ 캘린더 ID 또는 이벤트 ID 없음');
-      return false;
-    }
-
-    const calendar = CalendarApp.getCalendarById(calendarId);
-    if (!calendar) {
-      Logger.log('❌ 캘린더를 찾을 수 없음: ' + calendarId);
-      return false;
-    }
-
-    const event = calendar.getEventById(eventId);
-    if (!event) {
-      Logger.log('❌ 이벤트를 찾을 수 없음: ' + eventId);
       return false;
     }
 
@@ -628,13 +614,20 @@ function updateEvent(calendarId, eventId, rowData, rowNumber) {
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
     const description = content || '';
-
-    event.setTitle(eventTitle);
-    event.setAllDayDates(startDateTime, endDateTime);
-    event.setDescription(description);
-
     const colorCode = getStaffColor(staff);
-    event.setColor(colorCode.toString());
+
+    // Calendar API 형식으로 날짜 변환 (yyyy-MM-dd)
+    const startDateStr = Utilities.formatDate(startDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const endDateStr = Utilities.formatDate(endDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+    // Calendar API로 이벤트 업데이트 (patch는 제공된 필드만 업데이트)
+    Calendar.Events.patch({
+      summary: eventTitle,
+      description: description,
+      start: { date: startDateStr },
+      end: { date: endDateStr },
+      colorId: colorCode.toString()
+    }, calendarId, eventId);
 
     Logger.log('✅ 일정 업데이트 완료: ' + eventTitle);
     return true;
@@ -645,7 +638,7 @@ function updateEvent(calendarId, eventId, rowData, rowNumber) {
   }
 }
 
-// ===== 일정 삭제 =====
+// ===== 일정 삭제 (Calendar API) =====
 function deleteEvent(calendarId, eventId, rowNumber) {
   try {
     if (!calendarId || !eventId) {
@@ -653,19 +646,8 @@ function deleteEvent(calendarId, eventId, rowNumber) {
       return false;
     }
 
-    const calendar = CalendarApp.getCalendarById(calendarId);
-    if (!calendar) {
-      Logger.log('❌ 캘린더를 찾을 수 없음: ' + calendarId);
-      return false;
-    }
-
-    const event = calendar.getEventById(eventId);
-    if (!event) {
-      Logger.log('⚠️ 삭제할 이벤트를 찾을 수 없음: ' + eventId);
-      return false;
-    }
-
-    event.deleteEvent();
+    // Calendar API로 이벤트 삭제
+    Calendar.Events.remove(calendarId, eventId);
     Logger.log('✅ 캘린더 이벤트 삭제 완료');
     return true;
 
