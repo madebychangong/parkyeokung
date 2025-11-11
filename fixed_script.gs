@@ -19,7 +19,8 @@ const CONFIG = {
     // H, I열 - 비고란
     STAFF_CHANGED: 10,  // J열 - 담당자변경 체크
     CANCELLED: 11,      // K열 - 일정취소
-    PERSONAL_EVENT_ID: 12  // L열 - 개인 캘린더
+    PERSONAL_EVENT_ID: 12,  // L열 - 개인 캘린더
+    OLD_STAFF: 13       // M열 - 이전담당자 (자동)
   },
 
   PAYMENT_COLS: {
@@ -100,17 +101,18 @@ function showHelp() {
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【담당자 변경하기】\n' +
 
-    '1. 일정관리 시트에서 E열(담당자)을 새 담당자로 변경\n' +
-    '2. J열(담당자변경) 체크박스를 체크\n' +
+    '1. J열(담당자변경) 체크박스를 먼저 체크\n' +
+    '   → M열에 현재 담당자 자동 저장됨\n' +
+    '2. E열(담당자)을 새 담당자로 변경\n' +
     '3. 상태값 필터링 (완료 제외) → 메뉴 → "캘린더 동기화" 클릭\n' +
     '4. 자동으로 이전 담당자 캘린더에서 삭제\n' +
     '5. 새 담당자 캘린더에 일정 생성\n' +
-    '6. J열 체크박스 자동 해제\n\n' +
+    '6. J열, M열 자동 초기화\n\n' +
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【⚠️ 주의사항】\n' +
 
-    '• L열(캘린더ID)은 임의 수정 금지!\n' +
-    '• 담당자 변경 시 반드시 J열(담당자변경) 체크!\n' +
+    '• L열(캘린더ID), M열(이전담당자)은 자동 입력되므로 수정 금지!\n' +
+    '• 담당자 변경 시: 반드시 J열 체크 먼저 → E열 담당자 변경 순서!\n' +
     '• 캘린더에 등록할 일정은 신규,수정건 반드시 상태값적용, 필터링 후 "캘린더 동기화"\n' +
     '• 신규건은 동기화 후 캘린더ID 입력되면 캘린더에 일정 생성완료\n' +
     '• 문제 발생 시 → "시스템 점검" 확인\n\n' +
@@ -515,6 +517,8 @@ function getStaffPersonalCalendar(staffName) {
 }
 
 // ===== 이벤트ID로 담당자 찾기 (담당자 변경 감지용, Calendar API) =====
+// ⚠️ 더 이상 사용되지 않음 - M열(이전담당자)로 대체됨. 성능 문제로 제거됨.
+// 이 함수는 담당자 수만큼 Calendar API를 호출하여 매우 느렸음 (5초/건)
 function getStaffByEventId(eventId) {
   if (!eventId) return null;
 
@@ -833,6 +837,19 @@ function onEdit(e) {
     return;
   }
 
+  // J열(담당자변경) 체크 시 현재 담당자를 M열에 자동 저장
+  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col === CONFIG.SCHEDULE_COLS.STAFF_CHANGED) {
+    const checked = e.value;
+    if (checked === true || checked === 'TRUE') {
+      const currentStaff = sheet.getRange(row, CONFIG.SCHEDULE_COLS.STAFF).getValue();
+      if (currentStaff) {
+        sheet.getRange(row, CONFIG.SCHEDULE_COLS.OLD_STAFF).setValue(currentStaff);
+        Logger.log(`📝 이전담당자 저장: ${row}행, ${currentStaff}`);
+      }
+    }
+    return;
+  }
+
   if (sheetName === CONFIG.SHEET_NAMES.PAYMENT && (col === CONFIG.PAYMENT_COLS.TRANSFER || col === CONFIG.PAYMENT_COLS.COMPLETE)) {
     const paymentSheet = sheet;
     const transferChecked = paymentSheet.getRange(row, CONFIG.PAYMENT_COLS.TRANSFER).getValue();
@@ -950,7 +967,9 @@ function syncAll() {
       try {
         // === 담당자 변경 감지 (J열 체크됨) ===
         if (staffChanged === true && personalEventId) {
-          const oldStaff = getStaffByEventId(personalEventId);
+          // M열에서 이전 담당자 읽기 (Calendar API 호출 없음!)
+          const oldStaff = rowData[CONFIG.SCHEDULE_COLS.OLD_STAFF - 1];
+
           if (oldStaff && oldStaff !== staff) {
             const oldCalId = staffCalendarMap[oldStaff];
             if (oldCalId) {
@@ -958,6 +977,7 @@ function syncAll() {
               Logger.log(`🔄 담당자 변경: ${oldStaff} → ${staff} (${rowNumber}행)`);
             }
           }
+
           const newEventId = createEvent(calId, rowData, rowNumber);
           if (newEventId) {
             sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
@@ -967,7 +987,11 @@ function syncAll() {
             updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
             addToPaymentSheetIfNotExists(updatedRowData);
           }
+
+          // J열 체크 해제, M열 초기화
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
+          sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.OLD_STAFF).clearContent();
+
           processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
           flushCounter++;
           if (flushCounter >= FLUSH_INTERVAL) {
