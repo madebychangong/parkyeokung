@@ -899,7 +899,6 @@ function syncAll() {
   const ui = SpreadsheetApp.getUi();
   const MAX_BATCH = 120;
   const MAX_EXECUTION_TIME = 5 * 60 * 1000;
-  const startTime = new Date().getTime();
 
   const response = ui.alert(
     '⚙️ 캘린더 동기화',
@@ -907,6 +906,9 @@ function syncAll() {
     ui.ButtonSet.YES_NO
   );
   if (response !== ui.Button.YES) return;
+
+  // 사용자가 확인 후 실제 시작 시간 기록
+  const startTime = new Date().getTime();
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
@@ -1032,15 +1034,24 @@ function syncAll() {
         if (staffChanged === true && personalEventId) {
           // M열에서 이전 담당자 읽기 (Calendar API 호출 없음!)
           const oldStaff = rowData[CONFIG.SCHEDULE_COLS.OLD_STAFF - 1];
+          Logger.log(`🔄 ${rowNumber}행 담당자변경 감지: M열="${oldStaff}", E열="${staff}"`);
 
-          if (oldStaff && oldStaff !== staff) {
+          if (!oldStaff) {
+            Logger.log(`⚠️ M열(이전담당자) 비어있음! J열 체크 시 E열이 이미 변경된 후였을 가능성`);
+          } else if (oldStaff === staff) {
+            Logger.log(`⚠️ M열과 E열이 같음! J열 체크 시 E열이 이미 변경된 후였음`);
+          } else {
             const oldCalId = staffCalendarMap[oldStaff];
             if (oldCalId) {
+              Logger.log(`🗑️ 이전 담당자(${oldStaff}) 캘린더에서 삭제 중...`);
               deleteEvent(oldCalId, personalEventId, rowNumber);
-              Logger.log(`🔄 담당자 변경: ${oldStaff} → ${staff} (${rowNumber}행)`);
+              Logger.log(`✅ 이전 캘린더에서 삭제 완료`);
+            } else {
+              Logger.log(`⚠️ ${oldStaff}의 캘린더 ID 없음`);
             }
           }
 
+          Logger.log(`➕ 새 담당자(${staff}) 캘린더에 생성 중...`);
           const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
           if (newEventId) {
             sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
