@@ -964,6 +964,7 @@ function syncAll() {
     let skippedCount = 0;
     let emptyRowCount = 0;
     let completedCount = 0;
+    let cancelledCount = 0;
 
     for (let i = 1; i < totalRows; i++) {
       const rowNumber = i + 1;
@@ -973,10 +974,17 @@ function syncAll() {
       const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
       const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
       const status = rowData[CONFIG.SCHEDULE_COLS.STATUS - 1];
+      const cancelled = rowData[CONFIG.SCHEDULE_COLS.CANCELLED - 1];
 
       // 최적화: 완전히 빈 행은 건너뛰기
       if (!startDate && !endDate && !title && !staff) {
         emptyRowCount++;
+        continue;
+      }
+
+      // K열 일정취소 체크되어 있으면 건너뛰기
+      if (cancelled === true || cancelled === 'TRUE') {
+        cancelledCount++;
         continue;
       }
 
@@ -998,7 +1006,7 @@ function syncAll() {
     }
 
     const filterDuration = new Date().getTime() - filterStartTime;
-    Logger.log(`⏱️ 필터링 완료: ${totalRows}행 중 빈행${emptyRowCount}, 완료${completedCount}, 스킵${skippedCount}, 처리대상${workRows.length} (${filterDuration}ms)`);
+    Logger.log(`⏱️ 필터링 완료: ${totalRows}행 중 빈행${emptyRowCount}, 취소${cancelledCount}, 완료${completedCount}, 스킵${skippedCount}, 처리대상${workRows.length} (${filterDuration}ms)`);
 
     if (workRows.length === 0) {
       ui.alert('⚠️ 처리할 일정 없음', '모든 행이 "완료" 상태이거나 필수 값이 누락되었습니다.\n\n로그를 확인하세요.', ui.ButtonSet.OK);
@@ -1043,15 +1051,27 @@ function syncAll() {
       try {
         // === 담당자 변경 감지 (J열 체크됨) ===
         if (staffChanged === true && personalEventId) {
-          // M열에서 이전 담당자 읽기 (Calendar API 호출 없음!)
-          const oldStaff = rowData[CONFIG.SCHEDULE_COLS.OLD_STAFF - 1];
+          // M열에서 이전 담당자 읽기
+          let oldStaff = rowData[CONFIG.SCHEDULE_COLS.OLD_STAFF - 1];
           Logger.log(`🔄 ${rowNumber}행 담당자변경 감지: M열="${oldStaff}", E열="${staff}"`);
 
-          if (!oldStaff) {
-            Logger.log(`⚠️ M열(이전담당자) 비어있음! J열 체크 시 E열이 이미 변경된 후였을 가능성`);
-          } else if (oldStaff === staff) {
-            Logger.log(`⚠️ M열과 E열이 같음! J열 체크 시 E열이 이미 변경된 후였음`);
-          } else {
+          // M열이 비어있거나 E열과 같으면: 결제창관리에서 이전 담당자 찾기
+          if (!oldStaff || oldStaff === staff) {
+            Logger.log(`⚠️ M열이 없거나 E열과 같음 (E열 먼저 변경한 케이스). 결제창관리에서 이전 담당자 찾는 중...`);
+
+            // 결제창관리에서 해당 eventId의 담당자 찾기
+            for (let i = 1; i < paymentData.length; i++) {
+              const paymentEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+              if (paymentEventId === personalEventId) {
+                oldStaff = paymentData[i][CONFIG.PAYMENT_COLS.STAFF - 1];
+                Logger.log(`✅ 결제창관리에서 이전 담당자 찾음: ${oldStaff}`);
+                break;
+              }
+            }
+          }
+
+          // 이전 담당자가 있고 현재 담당자와 다르면 삭제
+          if (oldStaff && oldStaff !== staff) {
             const oldCalId = staffCalendarMap[oldStaff];
             if (oldCalId) {
               Logger.log(`🗑️ 이전 담당자(${oldStaff}) 캘린더에서 삭제 중...`);
@@ -1060,6 +1080,8 @@ function syncAll() {
             } else {
               Logger.log(`⚠️ ${oldStaff}의 캘린더 ID 없음`);
             }
+          } else {
+            Logger.log(`⚠️ 이전 담당자를 찾을 수 없거나 현재 담당자와 같음`);
           }
 
           Logger.log(`➕ 새 담당자(${staff}) 캘린더에 생성 중...`);
