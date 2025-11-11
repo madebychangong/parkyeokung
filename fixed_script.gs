@@ -904,7 +904,7 @@ function syncAll() {
 
   const response = ui.alert(
     '⚙️ 캘린더 동기화',
-    `현재 필터링된 일정을 동기화합니다.\n\n⚠️ 최대 ${MAX_BATCH}개까지 처리됩니다.\n⏳ 동기화 중에는 시트가 잠기며 편집할 수 없습니다.\n\n계속하시겠습니까?`,
+    `현재 필터링된 일정을 동기화합니다.\n\n⚠️ 최대 ${MAX_BATCH}개까지 처리됩니다.\n\n계속하시겠습니까?`,
     ui.ButtonSet.YES_NO
   );
   if (response !== ui.Button.YES) return;
@@ -912,7 +912,6 @@ function syncAll() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
   const staffSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.STAFF);
-  let protection = null;
 
   try {
     const filter = sheet.getFilter();
@@ -920,8 +919,6 @@ function syncAll() {
       ui.alert('❌ 필터 필요', '먼저 필터를 설정해주세요!', ui.ButtonSet.OK);
       return;
     }
-    // 시트 보호 (권한 추가X)
-    protection = sheet.protect().setDescription('동기화 중...');
 
     // 직원 캘린더 & 색상 캐시 (성능 최적화: 한 번만 읽기)
     const staffData = staffSheet.getDataRange().getValues();
@@ -952,6 +949,8 @@ function syncAll() {
     const allData = sheet.getDataRange().getValues();
     const totalRows = allData.length;
     let workRows = [];
+    let skippedReasons = [];
+
     for (let i = 1; i < totalRows; i++) {
       const rowNumber = i + 1;
       if (sheet.isRowHiddenByFilter(rowNumber)) continue;
@@ -961,8 +960,28 @@ function syncAll() {
       const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
       const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
       const calId = staffCalendarMap[staff];
-      if (!startDate || !endDate || !title || !staff || !calId) continue;
+
+      if (!startDate || !endDate || !title || !staff || !calId) {
+        let reason = `${rowNumber}행 스킵:`;
+        if (!startDate) reason += ' 시작일없음';
+        if (!endDate) reason += ' 종료일없음';
+        if (!title) reason += ' 제목없음';
+        if (!staff) reason += ' 담당자없음';
+        if (staff && !calId) reason += ` ${staff}의캘린더ID없음`;
+        skippedReasons.push(reason);
+        continue;
+      }
       workRows.push(i);
+    }
+
+    Logger.log(`📊 필터링 결과: ${workRows.length}개 처리 예정`);
+    if (skippedReasons.length > 0) {
+      Logger.log(`⚠️ 스킵된 행: ${skippedReasons.join(', ')}`);
+    }
+
+    if (workRows.length === 0) {
+      ui.alert('⚠️ 처리할 일정 없음', '필터링된 일정이 없거나 모든 행이 필수 값 누락으로 스킵되었습니다.\n\n로그를 확인하세요.', ui.ButtonSet.OK);
+      return;
     }
 
     const totalRowsToProcess = Math.min(workRows.length, MAX_BATCH);
@@ -1089,8 +1108,6 @@ function syncAll() {
     );
   } catch (e) {
     ui.alert('❌ 오류', `캘린더 동기화 중 오류: ${e.message}`, ui.ButtonSet.OK);
-  } finally {
-    try { if (protection) protection.remove(); } catch (e) {}
   }
 }
 
