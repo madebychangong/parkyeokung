@@ -523,6 +523,9 @@ function getStaffPersonalCalendar(staffName) {
 function getStaffByEventId(eventId) {
   if (!eventId) return null;
 
+  // CalendarApp 형식(@포함) 호환성: @ 앞부분만 추출
+  const pureEventId = eventId.includes('@') ? eventId.split('@')[0] : eventId;
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const staffSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.STAFF);
   const staffData = staffSheet.getDataRange().getValues();
@@ -535,7 +538,7 @@ function getStaffByEventId(eventId) {
     if (isActive === true && personalCalId) {
       try {
         // Calendar API로 이벤트 조회 (존재하면 성공, 없으면 예외 발생)
-        Calendar.Events.get(personalCalId, eventId);
+        Calendar.Events.get(personalCalId, pureEventId);
         return name;  // 이벤트가 존재하면 담당자명 반환
       } catch(e) {
         // 이벤트가 없으면 다음 캘린더 확인
@@ -606,6 +609,9 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
       return false;
     }
 
+    // CalendarApp 형식(@포함) 호환성: @ 앞부분만 추출
+    const pureEventId = eventId.includes('@') ? eventId.split('@')[0] : eventId;
+
     const startDateValue = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
     const endDateValue = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
     const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
@@ -633,7 +639,7 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
     const endDateStr = Utilities.formatDate(endDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
     // Calendar API로 이벤트 업데이트 (patch는 제공된 필드만 업데이트)
-    Logger.log(`  🌐 Calendar API 호출 중... (eventId: ${eventId.substring(0, 10)}...)`);
+    Logger.log(`  🌐 Calendar API 호출 중... (eventId: ${pureEventId.substring(0, 10)}...)`);
     const apiStartTime = new Date().getTime();
 
     Calendar.Events.patch({
@@ -642,7 +648,7 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
       start: { date: startDateStr },
       end: { date: endDateStr },
       colorId: colorCode.toString()
-    }, calendarId, eventId);
+    }, calendarId, pureEventId);
 
     const apiDuration = new Date().getTime() - apiStartTime;
     Logger.log(`  ✅ Calendar API 완료 (${apiDuration}ms): ${eventTitle}`);
@@ -662,8 +668,11 @@ function deleteEvent(calendarId, eventId, rowNumber) {
       return false;
     }
 
+    // CalendarApp 형식(@포함) 호환성: @ 앞부분만 추출
+    const pureEventId = eventId.includes('@') ? eventId.split('@')[0] : eventId;
+
     // Calendar API로 이벤트 삭제
-    Calendar.Events.remove(calendarId, eventId);
+    Calendar.Events.remove(calendarId, pureEventId);
     Logger.log('✅ 캘린더 이벤트 삭제 완료');
     return true;
 
