@@ -16,7 +16,8 @@ const CONFIG = {
     STAFF: 5,           // E열 - 담당자
     CONTENT: 6,         // F열 - 내용
     PAYMENT_DONE: 7,    // G열 - 결제완료 (읽기전용)
-    // H, I열 - 비고란
+    STATUS: 8,          // H열 - 상태 (신규/수정/완료)
+    // I열 - 비고란
     STAFF_CHANGED: 10,  // J열 - 담당자변경 체크
     CANCELLED: 11,      // K열 - 일정취소
     PERSONAL_EVENT_ID: 12,  // L열 - 개인 캘린더
@@ -962,6 +963,7 @@ function syncAll() {
     let workRows = [];
     let skippedCount = 0;
     let emptyRowCount = 0;
+    let completedCount = 0;
 
     for (let i = 1; i < totalRows; i++) {
       const rowNumber = i + 1;
@@ -970,16 +972,21 @@ function syncAll() {
       const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
       const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
       const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+      const status = rowData[CONFIG.SCHEDULE_COLS.STATUS - 1];
 
-      // 최적화: 완전히 빈 행은 필터 체크 없이 건너뛰기 (성능 향상)
+      // 최적화: 완전히 빈 행은 건너뛰기
       if (!startDate && !endDate && !title && !staff) {
         emptyRowCount++;
         continue;
       }
 
-      // 데이터가 있는 행만 필터 체크 (느린 작업)
-      if (sheet.isRowHiddenByFilter(rowNumber)) continue;
+      // H열 상태가 "완료"이면 건너뛰기 (처리 안 함)
+      if (status === '완료') {
+        completedCount++;
+        continue;
+      }
 
+      // "신규", "수정", 또는 빈 값만 처리
       const calId = staffCalendarMap[staff];
 
       if (!startDate || !endDate || !title || !staff || !calId) {
@@ -991,13 +998,10 @@ function syncAll() {
     }
 
     const filterDuration = new Date().getTime() - filterStartTime;
-    Logger.log(`⏱️ 필터링 완료: ${totalRows}행 중 ${emptyRowCount}행 빈행스킵, ${filterDuration}ms 소요`);
-
-    Logger.log(`📊 필터링: ${workRows.length}개 처리 예정, ${skippedCount}개 스킵`);
-    }
+    Logger.log(`⏱️ 필터링 완료: ${totalRows}행 중 빈행${emptyRowCount}, 완료${completedCount}, 스킵${skippedCount}, 처리대상${workRows.length} (${filterDuration}ms)`);
 
     if (workRows.length === 0) {
-      ui.alert('⚠️ 처리할 일정 없음', '필터링된 일정이 없거나 모든 행이 필수 값 누락으로 스킵되었습니다.\n\n로그를 확인하세요.', ui.ButtonSet.OK);
+      ui.alert('⚠️ 처리할 일정 없음', '모든 행이 "완료" 상태이거나 필수 값이 누락되었습니다.\n\n로그를 확인하세요.', ui.ButtonSet.OK);
       return;
     }
 
