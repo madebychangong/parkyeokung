@@ -956,14 +956,24 @@ function syncAll() {
     const allData = sheet.getDataRange().getValues();
     Logger.log(`⏱️ 일정관리 데이터 완료 (${allData.length}행)`);
 
-    Logger.log(`⏱️ 필터링 시작`);
+    Logger.log(`⏱️ 필터링 시작 (총 ${allData.length}행 검사)`);
+    const filterStartTime = new Date().getTime();
     const totalRows = allData.length;
     let workRows = [];
     let skippedCount = 0;
     let skippedReasons = [];
+    let filterCheckCount = 0;
 
     for (let i = 1; i < totalRows; i++) {
       const rowNumber = i + 1;
+      filterCheckCount++;
+
+      // 100행마다 진행 상황 로그
+      if (filterCheckCount % 100 === 0) {
+        const elapsed = new Date().getTime() - filterStartTime;
+        Logger.log(`⏱️ 필터 체크 중: ${filterCheckCount}/${totalRows} (${elapsed}ms)`);
+      }
+
       if (sheet.isRowHiddenByFilter(rowNumber)) continue;
       const rowData = allData[i];
       const startDate = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
@@ -992,6 +1002,9 @@ function syncAll() {
       }
       workRows.push(i);
     }
+
+    const filterDuration = new Date().getTime() - filterStartTime;
+    Logger.log(`⏱️ 필터링 완료: ${filterCheckCount}행 검사, ${filterDuration}ms 소요`);
 
     Logger.log(`📊 필터링: ${workRows.length}개 처리 예정, ${skippedCount}개 스킵`);
     if (skippedReasons.length > 0) {
