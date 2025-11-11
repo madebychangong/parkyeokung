@@ -909,6 +909,7 @@ function syncAll() {
 
   // 사용자가 확인 후 실제 시작 시간 기록
   const startTime = new Date().getTime();
+  Logger.log(`⏱️ 동기화 시작: ${new Date().toLocaleTimeString()}`);
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
@@ -921,6 +922,7 @@ function syncAll() {
       return;
     }
 
+    Logger.log(`⏱️ 담당자 데이터 읽기 시작`);
     // 직원 캘린더 & 색상 캐시 (성능 최적화: 한 번만 읽기)
     const staffData = staffSheet.getDataRange().getValues();
     const staffCalendarMap = {};
@@ -935,7 +937,9 @@ function syncAll() {
         staffColorMap[name] = colorCode || 1;  // 기본 색상 1
       }
     }
+    Logger.log(`⏱️ 담당자 데이터 완료 (${staffData.length}행)`);
 
+    Logger.log(`⏱️ 결제창 데이터 읽기 시작`);
     // 결제창 이벤트ID 캐시 (성능 최적화: 한 번만 읽기)
     const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
     const paymentData = paymentSheet.getDataRange().getValues();
@@ -946,8 +950,13 @@ function syncAll() {
         paymentEventIdSet.add(eventId);
       }
     }
+    Logger.log(`⏱️ 결제창 데이터 완료 (${paymentData.length}행)`);
 
+    Logger.log(`⏱️ 일정관리 데이터 읽기 시작`);
     const allData = sheet.getDataRange().getValues();
+    Logger.log(`⏱️ 일정관리 데이터 완료 (${allData.length}행)`);
+
+    Logger.log(`⏱️ 필터링 시작`);
     const totalRows = allData.length;
     let workRows = [];
     let skippedCount = 0;
