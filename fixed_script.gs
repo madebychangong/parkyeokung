@@ -21,7 +21,7 @@ const CONFIG = {
     STAFF_CHANGED: 10,  // J열 - 담당자변경 체크
     CANCELLED: 11,      // K열 - 일정취소
     PERSONAL_EVENT_ID: 12,  // L열 - 개인 캘린더
-    OLD_STAFF: 13       // M열 - 이전담당자 (자동)
+    OLD_STAFF: 13       // M열 - (사용안함: 결제창관리에서 이전담당자 찾음)
   },
 
   PAYMENT_COLS: {
@@ -102,18 +102,18 @@ function showHelp() {
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【담당자 변경하기】\n' +
 
-    '1. J열(담당자변경) 체크박스를 먼저 체크\n' +
-    '   → M열에 현재 담당자 자동 저장됨\n' +
-    '2. E열(담당자)을 새 담당자로 변경\n' +
+    '1. E열(담당자)을 새 담당자로 변경\n' +
+    '2. J열(담당자변경) 체크박스 체크\n' +
     '3. 상태값 필터링 (완료 제외) → 메뉴 → "캘린더 동기화" 클릭\n' +
-    '4. 자동으로 이전 담당자 캘린더에서 삭제\n' +
-    '5. 새 담당자 캘린더에 일정 생성\n' +
-    '6. J열, M열 자동 초기화\n\n' +
+    '4. 결제창관리에서 이전 담당자 자동 감지\n' +
+    '5. 이전 담당자 캘린더에서 자동 삭제\n' +
+    '6. 새 담당자 캘린더에 일정 생성\n' +
+    '7. J열 자동 초기화\n\n' +
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【⚠️ 주의사항】\n' +
 
-    '• L열(캘린더ID), M열(이전담당자)은 자동 입력되므로 수정 금지!\n' +
-    '• 담당자 변경 시: 반드시 J열 체크 먼저 → E열 담당자 변경 순서!\n' +
+    '• L열(캘린더ID)은 자동 입력되므로 수정 금지!\n' +
+    '• 담당자 변경 시: E열 먼저 변경 → J열 체크 (어느 순서든 가능)\n' +
     '• 캘린더에 등록할 일정은 신규,수정건 반드시 상태값적용, 필터링 후 "캘린더 동기화"\n' +
     '• 신규건은 동기화 후 캘린더ID 입력되면 캘린더에 일정 생성완료\n' +
     '• 문제 발생 시 → "시스템 점검" 확인\n\n' +
@@ -862,18 +862,8 @@ function onEdit(e) {
     return;
   }
 
-  // J열(담당자변경) 체크 시 현재 담당자를 M열에 자동 저장
-  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col === CONFIG.SCHEDULE_COLS.STAFF_CHANGED) {
-    const checked = e.value;
-    if (checked === true || checked === 'TRUE') {
-      const currentStaff = sheet.getRange(row, CONFIG.SCHEDULE_COLS.STAFF).getValue();
-      if (currentStaff) {
-        sheet.getRange(row, CONFIG.SCHEDULE_COLS.OLD_STAFF).setValue(currentStaff);
-        Logger.log(`📝 이전담당자 저장: ${row}행, ${currentStaff}`);
-      }
-    }
-    return;
-  }
+  // M열 저장 로직 제거: E열 먼저 수정 후 J열 체크하는 워크플로우에서는 작동 안 함
+  // syncAll()에서 결제창관리 시트에서 이전 담당자를 찾음
 
   if (sheetName === CONFIG.SHEET_NAMES.PAYMENT && (col === CONFIG.PAYMENT_COLS.TRANSFER || col === CONFIG.PAYMENT_COLS.COMPLETE)) {
     const paymentSheet = sheet;
@@ -1054,22 +1044,20 @@ function syncAll() {
       try {
         // === 담당자 변경 감지 (J열 체크됨) ===
         if (staffChanged === true && personalEventId) {
-          // M열에서 이전 담당자 읽기
-          let oldStaff = rowData[CONFIG.SCHEDULE_COLS.OLD_STAFF - 1];
-          Logger.log(`🔄 ${rowNumber}행 담당자변경 감지: M열="${oldStaff}", E열="${staff}"`);
+          Logger.log(`🔄 ${rowNumber}행 담당자변경 감지: E열="${staff}"`);
 
-          // M열이 비어있거나 E열과 같으면: 결제창관리에서 이전 담당자 찾기
-          if (!oldStaff || oldStaff === staff) {
-            Logger.log(`⚠️ M열이 없거나 E열과 같음 (E열 먼저 변경한 케이스). 결제창관리에서 이전 담당자 찾는 중...`);
+          // M열 무시하고 무조건 결제창관리에서 이전 담당자 찾기
+          // (사용자 워크플로우: E열 먼저 변경 → J열 체크)
+          let oldStaff = null;
+          Logger.log(`🔍 결제창관리에서 이전 담당자 찾는 중...`);
 
-            // 결제창관리에서 해당 eventId의 담당자 찾기
-            for (let i = 1; i < paymentData.length; i++) {
-              const paymentEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
-              if (paymentEventId === personalEventId) {
-                oldStaff = paymentData[i][CONFIG.PAYMENT_COLS.STAFF - 1];
-                Logger.log(`✅ 결제창관리에서 이전 담당자 찾음: ${oldStaff}`);
-                break;
-              }
+          // 결제창관리에서 해당 eventId의 담당자 찾기
+          for (let i = 1; i < paymentData.length; i++) {
+            const paymentEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+            if (paymentEventId === personalEventId) {
+              oldStaff = paymentData[i][CONFIG.PAYMENT_COLS.STAFF - 1];
+              Logger.log(`✅ 결제창관리에서 이전 담당자 찾음: ${oldStaff}`);
+              break;
             }
           }
 
@@ -1107,7 +1095,7 @@ function syncAll() {
           updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
           addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
 
-          // J열 체크 해제, M열 초기화
+          // J열 체크 해제, M열 클리어 (M열은 더 이상 사용 안 함)
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.OLD_STAFF).clearContent();
 
