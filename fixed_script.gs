@@ -887,14 +887,12 @@ function syncAll() {
     // 직원 캘린더 캐시
     const staffData = staffSheet.getDataRange().getValues();
     const staffCalendarMap = {};
-    const calendarCache = {};
     for (let i = 1; i < staffData.length; i++) {
       const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
       const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
       const calId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
       if (name && isActive === true && calId) {
         staffCalendarMap[name] = calId;
-        calendarCache[calId] = CalendarApp.getCalendarById(calId);
       }
     }
 
@@ -941,8 +939,6 @@ function syncAll() {
       const staffChanged = rowData[CONFIG.SCHEDULE_COLS.STAFF_CHANGED - 1];
       const personalEventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
       const calId = staffCalendarMap[staff];
-      const cal = calendarCache[calId];
-      if (!cal) continue;
       try {
         // === 담당자 변경 감지 (J열 체크됨) ===
         if (staffChanged === true && personalEventId) {
