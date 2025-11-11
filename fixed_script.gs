@@ -956,59 +956,44 @@ function syncAll() {
     const allData = sheet.getDataRange().getValues();
     Logger.log(`⏱️ 일정관리 데이터 완료 (${allData.length}행)`);
 
-    Logger.log(`⏱️ 필터링 시작 (총 ${allData.length}행 검사)`);
+    Logger.log(`⏱️ 필터링 시작 (총 ${allData.length}행)`);
     const filterStartTime = new Date().getTime();
     const totalRows = allData.length;
     let workRows = [];
     let skippedCount = 0;
-    let skippedReasons = [];
-    let filterCheckCount = 0;
+    let emptyRowCount = 0;
 
     for (let i = 1; i < totalRows; i++) {
       const rowNumber = i + 1;
-      filterCheckCount++;
-
-      // 100행마다 진행 상황 로그
-      if (filterCheckCount % 100 === 0) {
-        const elapsed = new Date().getTime() - filterStartTime;
-        Logger.log(`⏱️ 필터 체크 중: ${filterCheckCount}/${totalRows} (${elapsed}ms)`);
-      }
-
-      if (sheet.isRowHiddenByFilter(rowNumber)) continue;
       const rowData = allData[i];
       const startDate = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
       const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
       const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
       const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+
+      // 최적화: 완전히 빈 행은 필터 체크 없이 건너뛰기 (성능 향상)
+      if (!startDate && !endDate && !title && !staff) {
+        emptyRowCount++;
+        continue;
+      }
+
+      // 데이터가 있는 행만 필터 체크 (느린 작업)
+      if (sheet.isRowHiddenByFilter(rowNumber)) continue;
+
       const calId = staffCalendarMap[staff];
 
       if (!startDate || !endDate || !title || !staff || !calId) {
         skippedCount++;
-        // 빈 행은 로깅 안 함 (시작일, 종료일, 제목, 담당자가 모두 없으면)
-        if (!startDate && !endDate && !title && !staff) {
-          continue;
-        }
-        // 중요한 스킵만 로깅 (처음 5개만)
-        if (skippedReasons.length < 5) {
-          let reason = `${rowNumber}행:`;
-          if (!startDate) reason += ' 시작일X';
-          if (!endDate) reason += ' 종료일X';
-          if (!title) reason += ' 제목X';
-          if (!staff) reason += ' 담당자X';
-          if (staff && !calId) reason += ` ${staff}캘린더IDX`;
-          skippedReasons.push(reason);
-        }
         continue;
       }
+
       workRows.push(i);
     }
 
     const filterDuration = new Date().getTime() - filterStartTime;
-    Logger.log(`⏱️ 필터링 완료: ${filterCheckCount}행 검사, ${filterDuration}ms 소요`);
+    Logger.log(`⏱️ 필터링 완료: ${totalRows}행 중 ${emptyRowCount}행 빈행스킵, ${filterDuration}ms 소요`);
 
     Logger.log(`📊 필터링: ${workRows.length}개 처리 예정, ${skippedCount}개 스킵`);
-    if (skippedReasons.length > 0) {
-      Logger.log(`⚠️ 스킵 예시: ${skippedReasons.join(', ')}${skippedCount > 5 ? ` 외 ${skippedCount - 5}개` : ''}`);
     }
 
     if (workRows.length === 0) {
