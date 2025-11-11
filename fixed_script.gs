@@ -917,10 +917,16 @@ function syncAll() {
     const totalRowsToProcess = Math.min(workRows.length, MAX_BATCH);
     let processed = 0, errors = 0;
     let lastProcessedRow = 0, lastProcessedTitle = '';
+    let flushCounter = 0;
+    const FLUSH_INTERVAL = 15; // 15개마다 flush
 
     for (let w = 0; w < totalRowsToProcess; w++) {
       const elapsed = new Date().getTime() - startTime;
       if (elapsed > MAX_EXECUTION_TIME) {
+        // 타임아웃 전에 남은 변경사항 저장
+        if (flushCounter > 0) {
+          SpreadsheetApp.flush();
+        }
         ui.alert('⏱️ 타임아웃', `5분이 경과하여 안전하게 중단되었습니다.\n\n✅ 처리: ${processed}개\n📍 마지막 처리: ${lastProcessedRow}행 - ${lastProcessedTitle}`, ui.ButtonSet.OK);
         break;
       }
@@ -956,7 +962,11 @@ function syncAll() {
           }
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
           processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
-          SpreadsheetApp.flush();
+          flushCounter++;
+          if (flushCounter >= FLUSH_INTERVAL) {
+            SpreadsheetApp.flush();
+            flushCounter = 0;
+          }
           continue;
         }
 
@@ -966,7 +976,11 @@ function syncAll() {
           deleteFromPaymentSheetByEventId(personalEventId);
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).clearContent();
           processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
-          SpreadsheetApp.flush();
+          flushCounter++;
+          if (flushCounter >= FLUSH_INTERVAL) {
+            SpreadsheetApp.flush();
+            flushCounter = 0;
+          }
           continue;
         }
 
@@ -980,10 +994,19 @@ function syncAll() {
         }
 
         processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
-        SpreadsheetApp.flush();
+        flushCounter++;
+        if (flushCounter >= FLUSH_INTERVAL) {
+          SpreadsheetApp.flush();
+          flushCounter = 0;
+        }
       } catch (err) {
         errors++;
       }
+    }
+
+    // 마지막 남은 변경사항 flush
+    if (flushCounter > 0) {
+      SpreadsheetApp.flush();
     }
 
     ui.alert(
