@@ -16,7 +16,8 @@ const CONFIG = {
     STAFF: 5,           // E열 - 담당자
     CONTENT: 6,         // F열 - 내용
     PAYMENT_DONE: 7,    // G열 - 결제완료 (읽기전용)
-    // H, I, J열 - 비고란
+    // H, I열 - 비고란
+    STAFF_CHANGED: 10,  // J열 - 담당자변경 체크
     CANCELLED: 11,      // K열 - 일정취소
     PERSONAL_EVENT_ID: 12  // L열 - 개인 캘린더
   },
@@ -99,14 +100,17 @@ function showHelp() {
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【담당자 변경하기】\n' +
 
-    '1. 일정관리 시트에서 E열(담당자)만 변경\n' +
-    '2. 메뉴 → "캘린더 동기화" 클릭\n' +
-    '3. 자동으로 이전 담당자 캘린더에서 삭제\n' +
-    '4. 새 담당자 캘린더에 일정 생성\n\n' +
+    '1. 일정관리 시트에서 E열(담당자)을 새 담당자로 변경\n' +
+    '2. J열(담당자변경) 체크박스를 체크\n' +
+    '3. 상태값 필터링 (완료 제외) → 메뉴 → "캘린더 동기화" 클릭\n' +
+    '4. 자동으로 이전 담당자 캘린더에서 삭제\n' +
+    '5. 새 담당자 캘린더에 일정 생성\n' +
+    '6. J열 체크박스 자동 해제\n\n' +
     '━━━━━━━━━━━━━━━━━━━━\n' +
     '【⚠️ 주의사항】\n' +
 
     '• L열(캘린더ID)은 임의 수정 금지!\n' +
+    '• 담당자 변경 시 반드시 J열(담당자변경) 체크!\n' +
     '• 캘린더에 등록할 일정은 신규,수정건 반드시 상태값적용, 필터링 후 "캘린더 동기화"\n' +
     '• 신규건은 동기화 후 캘린더ID 입력되면 캘린더에 일정 생성완료\n' +
     '• 문제 발생 시 → "시스템 점검" 확인\n\n' +
@@ -946,11 +950,34 @@ function syncAll() {
       const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
       const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
       const cancelled = rowData[CONFIG.SCHEDULE_COLS.CANCELLED - 1];
+      const staffChanged = rowData[CONFIG.SCHEDULE_COLS.STAFF_CHANGED - 1];
       const personalEventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
       const calId = staffCalendarMap[staff];
       const cal = calendarCache[calId];
       if (!cal) continue;
       try {
+        // === 담당자 변경 감지 (J열 체크됨) ===
+        if (staffChanged === true && personalEventId) {
+          const oldStaff = getStaffByEventId(personalEventId);
+          if (oldStaff && oldStaff !== staff) {
+            const oldCalId = staffCalendarMap[oldStaff];
+            if (oldCalId) {
+              deleteEvent(oldCalId, personalEventId, rowNumber);
+              Logger.log(`🔄 담당자 변경: ${oldStaff} → ${staff} (${rowNumber}행)`);
+            }
+          }
+          const newEventId = createEvent(calId, rowData, rowNumber);
+          if (newEventId) {
+            sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
+            deleteFromPaymentSheetByEventId(personalEventId);
+            addToPaymentSheetIfNotExists(sheet.getRange(rowNumber, 1, 1, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValues()[0]);
+          }
+          sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
+          processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
+          SpreadsheetApp.flush();
+          continue;
+        }
+
         // === 취소 일정 ===
         if (cancelled === true && personalEventId) {
           deleteEvent(calId, personalEventId, rowNumber);
