@@ -654,7 +654,7 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
 }
 
 // ===== 일정 삭제 (Calendar API) =====
-function deleteEvent(calendarId, eventId, rowNumber) {
+function deleteEvent(calendarId, eventId, rowNumber, title) {
   try {
     if (!calendarId || !eventId) {
       Logger.log('⚠️ 캘린더 ID 또는 이벤트 ID 없음');
@@ -670,7 +670,8 @@ function deleteEvent(calendarId, eventId, rowNumber) {
     return true;
 
   } catch(e) {
-    Logger.log('❌ 이벤트 삭제 오류: ' + e.message);
+    const titleStr = title || '(제목없음)';
+    Logger.log(`❌ ${rowNumber}행 일정 삭제 오류 (${titleStr}): ${e.message}`);
     return false;
   }
 }
@@ -1077,7 +1078,12 @@ function syncAll() {
             const oldCalId = staffCalendarMap[oldStaff];
             if (oldCalId) {
               Logger.log(`🗑️ 이전 담당자(${oldStaff}) 캘린더에서 삭제 중...`);
-              deleteEvent(oldCalId, personalEventId, rowNumber);
+              const deleteSuccess = deleteEvent(oldCalId, personalEventId, rowNumber, title);
+              if (!deleteSuccess) {
+                // 이전 캘린더 삭제 실패 시 에러 카운트
+                errors++;
+                continue;
+              }
               Logger.log(`✅ 이전 캘린더에서 삭제 완료`);
             } else {
               Logger.log(`⚠️ ${oldStaff}의 캘린더 ID 없음`);
@@ -1116,7 +1122,12 @@ function syncAll() {
 
         // === 취소 일정 ===
         if (cancelled === true && personalEventId) {
-          deleteEvent(calId, personalEventId, rowNumber);
+          const deleteSuccess = deleteEvent(calId, personalEventId, rowNumber, title);
+          if (!deleteSuccess) {
+            // 일정 삭제 실패 시 에러 카운트
+            errors++;
+            continue;
+          }
           deleteFromPaymentSheetByEventId(personalEventId);
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).clearContent();
           processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
