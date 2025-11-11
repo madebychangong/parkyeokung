@@ -1153,9 +1153,27 @@ function syncAll() {
           // 업데이트
           const success = updateEvent(calId, personalEventId, rowData, rowNumber, staffColorMap);
           if (!success) {
-            // 업데이트 실패 시 에러 카운트
-            errors++;
-            continue;
+            // 업데이트 실패 (Not Found 등) → L열 삭제하고 새로 생성
+            Logger.log(`⚠️ ${rowNumber}행: 캘린더에 이벤트 없음 → L열 삭제 후 신규 생성`);
+            sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).clearContent();
+
+            const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
+            if (!newEventId) {
+              // 신규 생성도 실패 시 에러 카운트
+              errors++;
+              continue;
+            }
+
+            // 새 eventId 저장
+            sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
+
+            // 결제창관리에서 이전 eventId 삭제하고 새 eventId 추가
+            deleteFromPaymentSheetByEventId(personalEventId);
+            const updatedRowData = rowData.slice();
+            updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
+            addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
+
+            Logger.log(`✅ ${rowNumber}행: 자동 복구 완료 (새 eventId: ${newEventId})`);
           }
         }
 
