@@ -939,6 +939,14 @@ function syncAll() {
       const staffChanged = rowData[CONFIG.SCHEDULE_COLS.STAFF_CHANGED - 1];
       const personalEventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
       const calId = staffCalendarMap[staff];
+
+      // 방어 코드: calId 없으면 skip
+      if (!calId) {
+        Logger.log(`⚠️ ${rowNumber}행: ${staff} 담당자의 캘린더 ID 없음`);
+        errors++;
+        continue;
+      }
+
       try {
         // === 담당자 변경 감지 (J열 체크됨) ===
         if (staffChanged === true && personalEventId) {
@@ -954,7 +962,10 @@ function syncAll() {
           if (newEventId) {
             sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
             deleteFromPaymentSheetByEventId(personalEventId);
-            addToPaymentSheetIfNotExists(sheet.getRange(rowNumber, 1, 1, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValues()[0]);
+            // 수정: rowData 업데이트해서 전달 (flush 전이라 getValues() 사용 불가)
+            const updatedRowData = rowData.slice();
+            updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
+            addToPaymentSheetIfNotExists(updatedRowData);
           }
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
           processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
@@ -997,6 +1008,7 @@ function syncAll() {
         }
       } catch (err) {
         errors++;
+        Logger.log(`❌ ${rowNumber}행 처리 오류 (${title}): ${err.message}`);
       }
     }
 
