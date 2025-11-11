@@ -595,7 +595,8 @@ function createEvent(calendarId, rowData, rowNumber, staffColorMap) {
     return event.id;
 
   } catch(e) {
-    Logger.log('❌ 일정 생성 오류: ' + e.message);
+    const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1] || '(제목없음)';
+    Logger.log(`❌ ${rowNumber}행 일정 생성 오류 (${title}): ${e.message}`);
     return null;
   }
 }
@@ -646,7 +647,8 @@ function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
     return true;
 
   } catch(e) {
-    Logger.log('❌ 일정 업데이트 오류: ' + e.message);
+    const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1] || '(제목없음)';
+    Logger.log(`❌ ${rowNumber}행 일정 업데이트 오류 (${title}): ${e.message}`);
     return false;
   }
 }
@@ -1086,14 +1088,18 @@ function syncAll() {
 
           Logger.log(`➕ 새 담당자(${staff}) 캘린더에 생성 중...`);
           const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
-          if (newEventId) {
-            sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
-            deleteFromPaymentSheetByEventId(personalEventId);
-            // 수정: rowData 업데이트해서 전달 (flush 전이라 getValues() 사용 불가)
-            const updatedRowData = rowData.slice();
-            updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
-            addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
+          if (!newEventId) {
+            // 생성 실패 시 에러 카운트
+            errors++;
+            continue;
           }
+
+          sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
+          deleteFromPaymentSheetByEventId(personalEventId);
+          // 수정: rowData 업데이트해서 전달 (flush 전이라 getValues() 사용 불가)
+          const updatedRowData = rowData.slice();
+          updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
+          addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
 
           // J열 체크 해제, M열 초기화
           sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.STAFF_CHANGED).setValue(false);
@@ -1124,16 +1130,26 @@ function syncAll() {
 
         // === 이벤트 생성/업데이트 ===
         if (!personalEventId) {
+          // 신규 생성
           const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
-          if (newEventId) {
-            sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
-            // 신규 생성 시 결제창 추가
-            const updatedRowData = rowData.slice();
-            updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
-            addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
+          if (!newEventId) {
+            // 생성 실패 시 에러 카운트
+            errors++;
+            continue;
           }
+          sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
+          // 신규 생성 시 결제창 추가
+          const updatedRowData = rowData.slice();
+          updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
+          addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
         } else {
-          updateEvent(calId, personalEventId, rowData, rowNumber, staffColorMap);
+          // 업데이트
+          const success = updateEvent(calId, personalEventId, rowData, rowNumber, staffColorMap);
+          if (!success) {
+            // 업데이트 실패 시 에러 카운트
+            errors++;
+            continue;
+          }
         }
 
         processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
