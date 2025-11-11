@@ -547,7 +547,7 @@ function getStaffByEventId(eventId) {
 }
 
 // ===== 일정 생성 (Calendar API) =====
-function createEvent(calendarId, rowData, rowNumber) {
+function createEvent(calendarId, rowData, rowNumber, staffColorMap) {
   try {
     if (!calendarId) {
       Logger.log('⚠️ 캘린더 ID 없음');
@@ -570,7 +570,8 @@ function createEvent(calendarId, rowData, rowNumber) {
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
     const description = content || '';
-    const colorCode = getStaffColor(staff);
+    // 성능 최적화: 캐시에서 색상 가져오기 (없으면 함수 호출)
+    const colorCode = staffColorMap ? (staffColorMap[staff] || 1) : getStaffColor(staff);
 
     // Calendar API 형식으로 날짜 변환 (yyyy-MM-dd)
     const startDateStr = Utilities.formatDate(startDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -595,7 +596,7 @@ function createEvent(calendarId, rowData, rowNumber) {
 }
 
 // ===== 일정 업데이트 (Calendar API) =====
-function updateEvent(calendarId, eventId, rowData, rowNumber) {
+function updateEvent(calendarId, eventId, rowData, rowNumber, staffColorMap) {
   try {
     if (!calendarId || !eventId) {
       Logger.log('⚠️ 캘린더 ID 또는 이벤트 ID 없음');
@@ -618,7 +619,8 @@ function updateEvent(calendarId, eventId, rowData, rowNumber) {
     const { startDateTime, endDateTime } = parseEventDateTime(startDateValue, endDateValue);
     const eventTitle = buildEventTitle(staff, round || '', title, paymentDone);
     const description = content || '';
-    const colorCode = getStaffColor(staff);
+    // 성능 최적화: 캐시에서 색상 가져오기 (없으면 함수 호출)
+    const colorCode = staffColorMap ? (staffColorMap[staff] || 1) : getStaffColor(staff);
 
     // Calendar API 형식으로 날짜 변환 (yyyy-MM-dd)
     const startDateStr = Utilities.formatDate(startDateTime, Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -755,11 +757,8 @@ function addToPaymentSheet(rowData) {
 }
 
 // ===== 결제창에 없으면 추가 (중복 방지 - 이벤트ID로 확인) =====
-function addToPaymentSheetIfNotExists(rowData) {
+function addToPaymentSheetIfNotExists(rowData, paymentEventIdSet) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
-
     const eventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
 
     if (!eventId) {
@@ -767,14 +766,27 @@ function addToPaymentSheetIfNotExists(rowData) {
       return;
     }
 
-    const paymentData = paymentSheet.getDataRange().getValues();
-
-    for (let i = 1; i < paymentData.length; i++) {
-      const rowEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
-
-      if (rowEventId === eventId) {
+    // 성능 최적화: Set에서 빠르게 확인 (없으면 시트 읽기)
+    if (paymentEventIdSet) {
+      if (paymentEventIdSet.has(eventId)) {
         Logger.log('⏭️ 결제창에 이미 존재: 이벤트ID ' + eventId);
         return;
+      }
+      // Set에 추가하여 다음 호출 시 중복 방지
+      paymentEventIdSet.add(eventId);
+    } else {
+      // 캐시 없을 때 (하위 호환성)
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
+      const paymentData = paymentSheet.getDataRange().getValues();
+
+      for (let i = 1; i < paymentData.length; i++) {
+        const rowEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+
+        if (rowEventId === eventId) {
+          Logger.log('⏭️ 결제창에 이미 존재: 이벤트ID ' + eventId);
+          return;
+        }
       }
     }
 
@@ -901,15 +913,29 @@ function syncAll() {
     // 시트 보호 (권한 추가X)
     protection = sheet.protect().setDescription('동기화 중...');
 
-    // 직원 캘린더 캐시
+    // 직원 캘린더 & 색상 캐시 (성능 최적화: 한 번만 읽기)
     const staffData = staffSheet.getDataRange().getValues();
     const staffCalendarMap = {};
+    const staffColorMap = {};
     for (let i = 1; i < staffData.length; i++) {
       const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
       const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
       const calId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
+      const colorCode = staffData[i][CONFIG.STAFF_COLS.COLOR - 1];
       if (name && isActive === true && calId) {
         staffCalendarMap[name] = calId;
+        staffColorMap[name] = colorCode || 1;  // 기본 색상 1
+      }
+    }
+
+    // 결제창 이벤트ID 캐시 (성능 최적화: 한 번만 읽기)
+    const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
+    const paymentData = paymentSheet.getDataRange().getValues();
+    const paymentEventIdSet = new Set();
+    for (let i = 1; i < paymentData.length; i++) {
+      const eventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+      if (eventId) {
+        paymentEventIdSet.add(eventId);
       }
     }
 
@@ -978,14 +1004,14 @@ function syncAll() {
             }
           }
 
-          const newEventId = createEvent(calId, rowData, rowNumber);
+          const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
           if (newEventId) {
             sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
             deleteFromPaymentSheetByEventId(personalEventId);
             // 수정: rowData 업데이트해서 전달 (flush 전이라 getValues() 사용 불가)
             const updatedRowData = rowData.slice();
             updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
-            addToPaymentSheetIfNotExists(updatedRowData);
+            addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
           }
 
           // J열 체크 해제, M열 초기화
@@ -1017,11 +1043,16 @@ function syncAll() {
 
         // === 이벤트 생성/업데이트 ===
         if (!personalEventId) {
-          const newEventId = createEvent(calId, rowData, rowNumber);
-          if (newEventId)
+          const newEventId = createEvent(calId, rowData, rowNumber, staffColorMap);
+          if (newEventId) {
             sheet.getRange(rowNumber, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).setValue(newEventId);
+            // 신규 생성 시 결제창 추가
+            const updatedRowData = rowData.slice();
+            updatedRowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1] = newEventId;
+            addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
+          }
         } else {
-          updateEvent(calId, personalEventId, rowData, rowNumber);
+          updateEvent(calId, personalEventId, rowData, rowNumber, staffColorMap);
         }
 
         processed++; lastProcessedRow = rowNumber; lastProcessedTitle = title;
