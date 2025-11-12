@@ -364,8 +364,8 @@ function setupNewStaff() {
         }
       }
 
-      // 4️⃣ 모든 기존 캘린더를 이 담당자에게 공유 (캘린더 새로 생성한 경우만)
-      if (!existingCalId && existingCalendars.length > 0) {
+      // 4️⃣ 모든 기존 캘린더를 이 담당자에게 공유 (모든 활성 담당자)
+      if (existingCalendars.length > 0) {
         existingCalendars.forEach(calId => {
           if (calId !== personalCalId) {  // 본인 캘린더 제외
             try {
@@ -380,15 +380,17 @@ function setupNewStaff() {
               Logger.log(`✅ 기존 캘린더 공유 (${email}에게): ${calId}`);
               Utilities.sleep(300);  // API 제한 방지
             } catch(shareErr) {
-              // Rate Limit 등은 로그만 출력
-              Logger.log(`⚠️ 기존 캘린더 공유 실패: ${shareErr.message}`);
+              // "User already has access" 또는 Rate Limit 등은 로그만 출력
+              if (!shareErr.message.includes('already has access')) {
+                Logger.log(`⚠️ 기존 캘린더 공유 실패: ${shareErr.message}`);
+              }
             }
           }
         });
       }
 
-      // 5️⃣ 이 담당자의 캘린더를 모든 기존 담당자에게 공유 (캘린더 새로 생성한 경우만)
-      if (!existingCalId && personalCalId) {
+      // 5️⃣ 이 담당자의 캘린더를 모든 다른 담당자에게 공유 (모든 활성 담당자)
+      if (personalCalId) {
         for (let j = 1; j < staffData.length; j++) {
           if (j === i) continue;  // 본인 제외
 
@@ -408,12 +410,13 @@ function setupNewStaff() {
                   value: cleanEmail
                 }
               }, personalCalId);
-              Logger.log(`✅ 새 캘린더 공유 (${cleanEmail}에게): ${name}`);
+              Logger.log(`✅ 캘린더 공유 (${cleanEmail}에게): ${name}`);
               Utilities.sleep(300);  // API 제한 방지
             } catch(shareErr) {
-              // "Cannot change your own access level"은 무시
-              if (!shareErr.message.includes('Cannot change')) {
-                Logger.log(`⚠️ 새 캘린더 공유 실패 (${cleanEmail}): ${shareErr.message}`);
+              // "Cannot change your own access level" 또는 "already has access"는 무시
+              if (!shareErr.message.includes('Cannot change') &&
+                  !shareErr.message.includes('already has access')) {
+                Logger.log(`⚠️ 캘린더 공유 실패 (${cleanEmail}): ${shareErr.message}`);
               }
             }
           }
