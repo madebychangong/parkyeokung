@@ -526,24 +526,18 @@ function resyncCalendarSharing() {
         if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
 
         try {
+          // ACL 목록 조회해서 기존 권한 ID 찾기
+          const aclList = Calendar.Acl.list(targetStaff.calId);
           let existingAclId = null;
 
-          // ACL 목록 조회 시도 (실패해도 계속 진행)
-          try {
-            const aclList = Calendar.Acl.list(targetStaff.calId);
-            if (aclList.items) {
-              for (const acl of aclList.items) {
-                if (acl.scope && acl.scope.type === 'user' &&
-                    acl.scope.value.toLowerCase() === otherStaff.email.toLowerCase()) {
-                  existingAclId = acl.id;
-                  break;
-                }
+          if (aclList.items) {
+            for (const acl of aclList.items) {
+              if (acl.scope && acl.scope.type === 'user' &&
+                  acl.scope.value.toLowerCase() === otherStaff.email.toLowerCase()) {
+                existingAclId = acl.id;
+                break;
               }
             }
-          } catch(listErr) {
-            // ACL 목록 조회 실패 (캘린더 ID 문제 등)
-            Logger.log(`    ╠═ ⚠️ ACL 목록 조회 실패: ${listErr.message}`);
-            // 조회 실패해도 추가는 시도
           }
 
           // 기존 권한 있으면 삭제
@@ -554,6 +548,7 @@ function resyncCalendarSharing() {
               Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name}`);
               Utilities.sleep(300);
             } catch(delErr) {
+              // 삭제 실패해도 계속 진행 (추가 시도)
               Logger.log(`    ╠═ ⚠️ 삭제 실패 (${otherStaff.name}): ${delErr.message}`);
             }
           }
@@ -586,24 +581,18 @@ function resyncCalendarSharing() {
         if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
 
         try {
+          // ACL 목록 조회해서 기존 권한 ID 찾기
+          const aclList = Calendar.Acl.list(otherStaff.calId);
           let existingAclId = null;
 
-          // ACL 목록 조회 시도 (실패해도 계속 진행)
-          try {
-            const aclList = Calendar.Acl.list(otherStaff.calId);
-            if (aclList.items) {
-              for (const acl of aclList.items) {
-                if (acl.scope && acl.scope.type === 'user' &&
-                    acl.scope.value.toLowerCase() === targetStaff.email.toLowerCase()) {
-                  existingAclId = acl.id;
-                  break;
-                }
+          if (aclList.items) {
+            for (const acl of aclList.items) {
+              if (acl.scope && acl.scope.type === 'user' &&
+                  acl.scope.value.toLowerCase() === targetStaff.email.toLowerCase()) {
+                existingAclId = acl.id;
+                break;
               }
             }
-          } catch(listErr) {
-            // ACL 목록 조회 실패 (캘린더 ID 문제 등)
-            Logger.log(`    ╠═ ⚠️ ACL 목록 조회 실패 (${otherStaff.name}): ${listErr.message}`);
-            // 조회 실패해도 추가는 시도
           }
 
           // 기존 권한 있으면 삭제
@@ -614,6 +603,7 @@ function resyncCalendarSharing() {
               Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name} → ${targetStaff.name}`);
               Utilities.sleep(300);
             } catch(delErr) {
+              // 삭제 실패해도 계속 진행
               Logger.log(`    ╠═ ⚠️ 삭제 실패: ${delErr.message}`);
             }
           }
