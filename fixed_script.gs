@@ -38,7 +38,8 @@ const CONFIG = {
     EMAIL: 2,
     COLOR: 3,
     ACTIVE: 4,
-    PERSONAL_CAL: 5
+    PERSONAL_CAL: 5,
+    RESYNC: 6           // F열 - 재공유 체크박스
   },
 
   WARNING_COLOR: '#ffff00'
@@ -424,18 +425,9 @@ function setupNewStaff() {
   }
 }
 
-// ===== 캘린더 공유 재시도 (실패한 공유만 다시 시도) =====
+// ===== 캘린더 공유 재시도 (체크된 담당자만 선택적 재공유) =====
 function resyncCalendarSharing() {
   const ui = SpreadsheetApp.getUi();
-  const response = ui.alert(
-    '🔄 캘린더 공유 재시도',
-    '모든 담당자의 캘린더를 서로 공유합니다.\n\n이미 공유된 사람은 건너뛰고,\n공유가 안 된 사람만 다시 시도합니다.\n\n계속하시겠습니까?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (response !== ui.Button.YES) {
-    return;
-  }
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -448,17 +440,45 @@ function resyncCalendarSharing() {
 
     const staffData = staffSheet.getDataRange().getValues();
 
-    // 활성 담당자 목록 (이메일, 이름, 캘린더ID)
+    // 활성 담당자 목록 (이메일, 이름, 캘린더ID, 행번호)
     const activeStaff = [];
+    const resyncStaff = [];  // 재공유 체크된 사람들
+
     for (let i = 1; i < staffData.length; i++) {
       const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
       const email = (staffData[i][CONFIG.STAFF_COLS.EMAIL - 1] || '').toString().trim();
       const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
       const calId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
+      const needsResync = staffData[i][CONFIG.STAFF_COLS.RESYNC - 1];
 
       if (name && email && isActive === true && calId) {
-        activeStaff.push({ name, email, calId });
+        const staffInfo = { name, email, calId, rowIndex: i + 1 };
+        activeStaff.push(staffInfo);
+
+        if (needsResync === true || needsResync === 'TRUE') {
+          resyncStaff.push(staffInfo);
+        }
       }
+    }
+
+    // 재공유 체크된 사람이 없으면 안내
+    if (resyncStaff.length === 0) {
+      ui.alert(
+        '⚠️ 알림',
+        '재공유할 담당자가 없습니다.\n\n담당자 탭의 F열(재공유)에 체크하고\n다시 실행해주세요.',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    // 확인 메시지
+    const names = resyncStaff.map(s => s.name).join(', ');
+    const confirmMsg = `🔄 캘린더 재공유\n\n다음 담당자의 캘린더를 재공유합니다:\n${names}\n\n• 해당 담당자의 캘린더 → 모두에게 재공유\n• 모든 캘린더 → 해당 담당자에게 재공유\n• 초대 메일이 다시 발송됩니다\n\n계속하시겠습니까?`;
+
+    const response = ui.alert('🔄 캘린더 공유 재시도', confirmMsg, ui.ButtonSet.YES_NO);
+
+    if (response !== ui.Button.YES) {
+      return;
     }
 
     if (activeStaff.length === 0) {
@@ -466,114 +486,140 @@ function resyncCalendarSharing() {
       return;
     }
 
-    Logger.log(`🔄 캘린더 공유 재시도 시작 (담당자 ${activeStaff.length}명)`);
+    Logger.log(`🔄 캘린더 공유 재시도 시작 (체크된 담당자 ${resyncStaff.length}명)`);
 
-    let totalChecked = 0;
-    let alreadyShared = 0;
-    let newlyShared = 0;
+    let deleted = 0;
+    let reshared = 0;
     let failed = 0;
     const failedList = [];
 
-    // 각 담당자의 캘린더를 다른 모든 담당자에게 공유
-    for (let i = 0; i < activeStaff.length; i++) {
-      const owner = activeStaff[i];
+    // 체크된 각 담당자 처리
+    for (const targetStaff of resyncStaff) {
+      Logger.log(`\n📧 [${targetStaff.name}] 캘린더 재공유 시작...`);
 
-      Logger.log(`\n📅 [${owner.name}]의 캘린더 공유 확인 중...`);
+      // 1️⃣ 이 담당자의 캘린더를 → 모든 다른 담당자에게 재공유 (삭제→추가)
+      Logger.log(`  ┌─ ${targetStaff.name}의 캘린더 → 다른 사람들에게 재공유`);
+      for (const otherStaff of activeStaff) {
+        if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
 
-      try {
-        // 현재 이 캘린더에 공유된 사람들의 이메일 목록
-        const aclList = Calendar.Acl.list(owner.calId);
-        const sharedEmails = new Set();
+        try {
+          // ACL 목록 조회해서 기존 권한 ID 찾기
+          const aclList = Calendar.Acl.list(targetStaff.calId);
+          let existingAclId = null;
 
-        if (aclList.items) {
-          aclList.items.forEach(acl => {
-            if (acl.scope && acl.scope.type === 'user' && acl.scope.value) {
-              sharedEmails.add(acl.scope.value.toLowerCase());
-            }
-          });
-        }
-
-        // 다른 모든 담당자에게 공유되어 있는지 확인
-        for (let j = 0; j < activeStaff.length; j++) {
-          if (i === j) continue;  // 본인 제외
-
-          const target = activeStaff[j];
-          totalChecked++;
-
-          if (sharedEmails.has(target.email.toLowerCase())) {
-            // 이미 공유됨
-            alreadyShared++;
-            Logger.log(`  ⏭️ 이미 공유됨: ${target.name} (${target.email})`);
-          } else {
-            // 공유 안 됨 → 공유 시도
-            try {
-              Calendar.Acl.insert({
-                role: 'owner',
-                scope: {
-                  type: 'user',
-                  value: target.email
-                }
-              }, owner.calId);
-
-              newlyShared++;
-              Logger.log(`  ✅ 공유 완료: ${target.name} (${target.email})`);
-              Utilities.sleep(300);  // Rate Limit 방지
-
-            } catch(shareErr) {
-              failed++;
-              const errorMsg = `${owner.name} → ${target.name}: ${shareErr.message}`;
-              failedList.push(errorMsg);
-              Logger.log(`  ❌ 공유 실패: ${errorMsg}`);
-              Utilities.sleep(300);  // 실패해도 대기
-            }
-          }
-        }
-
-      } catch(listErr) {
-        Logger.log(`  ⚠️ ACL 목록 조회 실패 (${owner.name}): ${listErr.message}`);
-        // ACL 목록을 못 가져온 경우, 모든 담당자에게 공유 시도
-        for (let j = 0; j < activeStaff.length; j++) {
-          if (i === j) continue;
-
-          const target = activeStaff[j];
-          totalChecked++;
-
-          try {
-            Calendar.Acl.insert({
-              role: 'owner',
-              scope: {
-                type: 'user',
-                value: target.email
+          if (aclList.items) {
+            for (const acl of aclList.items) {
+              if (acl.scope && acl.scope.type === 'user' &&
+                  acl.scope.value.toLowerCase() === otherStaff.email.toLowerCase()) {
+                existingAclId = acl.id;
+                break;
               }
-            }, owner.calId);
-
-            newlyShared++;
-            Logger.log(`  ✅ 공유 완료: ${target.name} (${target.email})`);
-            Utilities.sleep(300);
-
-          } catch(shareErr) {
-            // "User already has access" 에러는 카운트 안 함
-            if (shareErr.message.includes('already has access')) {
-              alreadyShared++;
-              Logger.log(`  ⏭️ 이미 공유됨: ${target.name} (${target.email})`);
-            } else {
-              failed++;
-              const errorMsg = `${owner.name} → ${target.name}: ${shareErr.message}`;
-              failedList.push(errorMsg);
-              Logger.log(`  ❌ 공유 실패: ${errorMsg}`);
             }
-            Utilities.sleep(300);
           }
+
+          // 기존 권한 있으면 삭제
+          if (existingAclId) {
+            try {
+              Calendar.Acl.remove(targetStaff.calId, existingAclId);
+              deleted++;
+              Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name}`);
+              Utilities.sleep(300);
+            } catch(delErr) {
+              // 삭제 실패해도 계속 진행 (추가 시도)
+              Logger.log(`    ╠═ ⚠️ 삭제 실패 (${otherStaff.name}): ${delErr.message}`);
+            }
+          }
+
+          // 다시 추가 (메일 재발송)
+          Calendar.Acl.insert({
+            role: 'owner',
+            scope: {
+              type: 'user',
+              value: otherStaff.email
+            }
+          }, targetStaff.calId);
+
+          reshared++;
+          Logger.log(`    ╠═ ✅ 재공유 완료: ${otherStaff.name}`);
+          Utilities.sleep(300);
+
+        } catch(err) {
+          failed++;
+          const errorMsg = `${targetStaff.name} → ${otherStaff.name}: ${err.message}`;
+          failedList.push(errorMsg);
+          Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          Utilities.sleep(300);
         }
       }
+
+      // 2️⃣ 모든 다른 담당자의 캘린더를 → 이 담당자에게 재공유 (삭제→추가)
+      Logger.log(`  └─ 다른 사람들의 캘린더 → ${targetStaff.name}에게 재공유`);
+      for (const otherStaff of activeStaff) {
+        if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
+
+        try {
+          // ACL 목록 조회해서 기존 권한 ID 찾기
+          const aclList = Calendar.Acl.list(otherStaff.calId);
+          let existingAclId = null;
+
+          if (aclList.items) {
+            for (const acl of aclList.items) {
+              if (acl.scope && acl.scope.type === 'user' &&
+                  acl.scope.value.toLowerCase() === targetStaff.email.toLowerCase()) {
+                existingAclId = acl.id;
+                break;
+              }
+            }
+          }
+
+          // 기존 권한 있으면 삭제
+          if (existingAclId) {
+            try {
+              Calendar.Acl.remove(otherStaff.calId, existingAclId);
+              deleted++;
+              Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name} → ${targetStaff.name}`);
+              Utilities.sleep(300);
+            } catch(delErr) {
+              // 삭제 실패해도 계속 진행
+              Logger.log(`    ╠═ ⚠️ 삭제 실패: ${delErr.message}`);
+            }
+          }
+
+          // 다시 추가 (메일 재발송)
+          Calendar.Acl.insert({
+            role: 'owner',
+            scope: {
+              type: 'user',
+              value: targetStaff.email
+            }
+          }, otherStaff.calId);
+
+          reshared++;
+          Logger.log(`    ╠═ ✅ 재공유 완료: ${otherStaff.name} → ${targetStaff.name}`);
+          Utilities.sleep(300);
+
+        } catch(err) {
+          failed++;
+          const errorMsg = `${otherStaff.name} → ${targetStaff.name}: ${err.message}`;
+          failedList.push(errorMsg);
+          Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          Utilities.sleep(300);
+        }
+      }
+
+      // 체크박스 해제
+      staffSheet.getRange(targetStaff.rowIndex, CONFIG.STAFF_COLS.RESYNC).setValue(false);
+      Logger.log(`  ✓ 체크박스 해제: ${targetStaff.name}`);
     }
 
     // 결과 메시지
-    let message = '✅ 캘린더 공유 재시도 완료!\n\n';
+    const resyncNames = resyncStaff.map(s => s.name).join(', ');
+    let message = '✅ 캘린더 재공유 완료!\n\n';
+    message += `【대상 담당자】\n`;
+    message += `${resyncNames}\n\n`;
     message += `【처리 결과】\n`;
-    message += `• 확인한 공유: ${totalChecked}건\n`;
-    message += `• 이미 공유됨: ${alreadyShared}건\n`;
-    message += `• 새로 공유됨: ${newlyShared}건\n`;
+    message += `• 기존 권한 삭제: ${deleted}건\n`;
+    message += `• 재공유 (메일 재발송): ${reshared}건\n`;
 
     if (failed > 0) {
       message += `• 실패: ${failed}건\n\n`;
@@ -586,10 +632,11 @@ function resyncCalendarSharing() {
       }
     }
 
-    message += '\n📧 새로 공유된 담당자는 이메일에서 초대를 수락해주세요!';
+    message += '\n📧 모든 담당자에게 초대 메일이 재발송되었습니다!';
+    message += '\n💡 이메일에서 초대를 수락해주세요.';
 
     ui.alert('✅ 완료', message, ui.ButtonSet.OK);
-    Logger.log('✅ 캘린더 공유 재시도 완료');
+    Logger.log('✅ 캘린더 재공유 완료');
 
   } catch(e) {
     ui.alert('❌ 오류', '캘린더 공유 재시도 중 오류 발생: ' + e.message, ui.ButtonSet.OK);
