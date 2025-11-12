@@ -321,8 +321,8 @@ function setupNewStaff() {
         errorMessages.push(`${name}: 편집 권한 부여 실패`);
       }
 
-      // 3️⃣ 담당자 본인 캘린더에 owner 권한
-      if (personalCalId) {
+      // 3️⃣ 담당자 본인 캘린더에 owner 권한 (캘린더 새로 생성한 경우만)
+      if (personalCalId && !existingCalId) {
         try {
           Calendar.Acl.insert({
             role: 'owner',
@@ -332,13 +332,17 @@ function setupNewStaff() {
             }
           }, personalCalId);
           Logger.log('✅ 본인 캘린더 owner 권한: ' + email);
+          Utilities.sleep(100);  // API 제한 방지
         } catch(shareError) {
-          Logger.log('⚠️ 본인 캘린더 공유 실패: ' + email + ' - ' + shareError.message);
+          // "Cannot change your own access level"은 정상 (무시)
+          if (!shareError.message.includes('Cannot change')) {
+            Logger.log('⚠️ 본인 캘린더 공유 실패: ' + email + ' - ' + shareError.message);
+          }
         }
       }
 
-      // 4️⃣ 모든 기존 캘린더를 이 담당자에게 공유
-      if (existingCalendars.length > 0) {
+      // 4️⃣ 모든 기존 캘린더를 이 담당자에게 공유 (캘린더 새로 생성한 경우만)
+      if (!existingCalId && existingCalendars.length > 0) {
         existingCalendars.forEach(calId => {
           if (calId !== personalCalId) {  // 본인 캘린더 제외
             try {
@@ -351,33 +355,43 @@ function setupNewStaff() {
               }, calId);
               calendarShared++;
               Logger.log(`✅ 기존 캘린더 공유 (${email}에게): ${calId}`);
+              Utilities.sleep(100);  // API 제한 방지
             } catch(shareErr) {
+              // Rate Limit 등은 로그만 출력
               Logger.log(`⚠️ 기존 캘린더 공유 실패: ${shareErr.message}`);
             }
           }
         });
       }
 
-      // 5️⃣ 이 담당자의 캘린더를 모든 기존 담당자에게 공유
-      if (personalCalId) {
+      // 5️⃣ 이 담당자의 캘린더를 모든 기존 담당자에게 공유 (캘린더 새로 생성한 경우만)
+      if (!existingCalId && personalCalId) {
         for (let j = 1; j < staffData.length; j++) {
           if (j === i) continue;  // 본인 제외
-          
+
           const otherEmail = staffData[j][CONFIG.STAFF_COLS.EMAIL - 1];
           const otherActive = staffData[j][CONFIG.STAFF_COLS.ACTIVE - 1];
-          
+
           if (otherEmail && otherActive === true) {
+            // 이메일 공백 제거
+            const cleanEmail = otherEmail.trim();
+            if (!cleanEmail) continue;
+
             try {
               Calendar.Acl.insert({
                 role: 'owner',
                 scope: {
                   type: 'user',
-                  value: otherEmail
+                  value: cleanEmail
                 }
               }, personalCalId);
-              Logger.log(`✅ 새 캘린더 공유 (${otherEmail}에게): ${name}`);
+              Logger.log(`✅ 새 캘린더 공유 (${cleanEmail}에게): ${name}`);
+              Utilities.sleep(100);  // API 제한 방지
             } catch(shareErr) {
-              Logger.log(`⚠️ 새 캘린더 공유 실패: ${shareErr.message}`);
+              // "Cannot change your own access level"은 무시
+              if (!shareErr.message.includes('Cannot change')) {
+                Logger.log(`⚠️ 새 캘린더 공유 실패 (${cleanEmail}): ${shareErr.message}`);
+              }
             }
           }
         }
