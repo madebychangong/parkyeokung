@@ -119,6 +119,29 @@ function showHelp() {
     '7. J열 자동 체크 해제됨\n\n' +
     '  ⚠️ E열과 J열 순서는 상관없음 (어떤 순서든 OK)\n' +
     '━━━━━━━━━━━━━━━━━━━━\n' +
+    '【📧 캘린더 공유 재시도】\n' +
+    '\n' +
+    '🔹 언제 사용하나요?\n' +
+    '  • 새 담당자 추가 시 초대 메일을 못 받은 경우\n' +
+    '  • 공유 중 오류가 발생한 경우\n' +
+    '  • 캘린더가 보이지 않는 담당자가 있는 경우\n\n' +
+    '🔹 사용 방법:\n' +
+    '  1. 담당자관리 시트로 이동\n' +
+    '  2. F열(재공유)에 문제 생긴 담당자만 체크 ✓\n' +
+    '  3. 메뉴 → "캘린더 공유 재시도" 클릭\n' +
+    '  4. 확인 팝업에서 [예] 클릭\n' +
+    '  5. 체크된 담당자에게만 캘린더 재공유!\n' +
+    '  6. 모든 담당자에게 초대 메일 재발송됨\n' +
+    '  7. 완료 후 체크박스 자동 해제됨\n\n' +
+    '🔹 효율성:\n' +
+    '  • 1명 체크 시: 약 35초 (116번 API 호출)\n' +
+    '  • 3명 체크 시: 약 1분 45초 (348번 API 호출)\n' +
+    '  • 전체 재공유 대비 5~15배 빠름!\n\n' +
+    '🔹 주의사항:\n' +
+    '  • 반드시 문제 생긴 사람만 체크하세요\n' +
+    '  • 전체 체크 시 시간이 오래 걸릴 수 있음\n' +
+    '  • 이메일에서 초대를 수락해야 캘린더에 추가됨\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━\n' +
     '【⚠️ 주의사항】\n' +
 
     '• H열(상태) 필수: "신규", "수정" 입력 시만 동기화됨\n' +
@@ -503,18 +526,24 @@ function resyncCalendarSharing() {
         if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
 
         try {
-          // ACL 목록 조회해서 기존 권한 ID 찾기
-          const aclList = Calendar.Acl.list(targetStaff.calId);
           let existingAclId = null;
 
-          if (aclList.items) {
-            for (const acl of aclList.items) {
-              if (acl.scope && acl.scope.type === 'user' &&
-                  acl.scope.value.toLowerCase() === otherStaff.email.toLowerCase()) {
-                existingAclId = acl.id;
-                break;
+          // ACL 목록 조회 시도 (실패해도 계속 진행)
+          try {
+            const aclList = Calendar.Acl.list(targetStaff.calId);
+            if (aclList.items) {
+              for (const acl of aclList.items) {
+                if (acl.scope && acl.scope.type === 'user' &&
+                    acl.scope.value.toLowerCase() === otherStaff.email.toLowerCase()) {
+                  existingAclId = acl.id;
+                  break;
+                }
               }
             }
+          } catch(listErr) {
+            // ACL 목록 조회 실패 (캘린더 ID 문제 등)
+            Logger.log(`    ╠═ ⚠️ ACL 목록 조회 실패: ${listErr.message}`);
+            // 조회 실패해도 추가는 시도
           }
 
           // 기존 권한 있으면 삭제
@@ -525,7 +554,6 @@ function resyncCalendarSharing() {
               Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name}`);
               Utilities.sleep(300);
             } catch(delErr) {
-              // 삭제 실패해도 계속 진행 (추가 시도)
               Logger.log(`    ╠═ ⚠️ 삭제 실패 (${otherStaff.name}): ${delErr.message}`);
             }
           }
@@ -558,18 +586,24 @@ function resyncCalendarSharing() {
         if (otherStaff.email === targetStaff.email) continue;  // 본인 제외
 
         try {
-          // ACL 목록 조회해서 기존 권한 ID 찾기
-          const aclList = Calendar.Acl.list(otherStaff.calId);
           let existingAclId = null;
 
-          if (aclList.items) {
-            for (const acl of aclList.items) {
-              if (acl.scope && acl.scope.type === 'user' &&
-                  acl.scope.value.toLowerCase() === targetStaff.email.toLowerCase()) {
-                existingAclId = acl.id;
-                break;
+          // ACL 목록 조회 시도 (실패해도 계속 진행)
+          try {
+            const aclList = Calendar.Acl.list(otherStaff.calId);
+            if (aclList.items) {
+              for (const acl of aclList.items) {
+                if (acl.scope && acl.scope.type === 'user' &&
+                    acl.scope.value.toLowerCase() === targetStaff.email.toLowerCase()) {
+                  existingAclId = acl.id;
+                  break;
+                }
               }
             }
+          } catch(listErr) {
+            // ACL 목록 조회 실패 (캘린더 ID 문제 등)
+            Logger.log(`    ╠═ ⚠️ ACL 목록 조회 실패 (${otherStaff.name}): ${listErr.message}`);
+            // 조회 실패해도 추가는 시도
           }
 
           // 기존 권한 있으면 삭제
@@ -580,7 +614,6 @@ function resyncCalendarSharing() {
               Logger.log(`    ╠═ 🗑️ 기존 권한 삭제: ${otherStaff.name} → ${targetStaff.name}`);
               Utilities.sleep(300);
             } catch(delErr) {
-              // 삭제 실패해도 계속 진행
               Logger.log(`    ╠═ ⚠️ 삭제 실패: ${delErr.message}`);
             }
           }
