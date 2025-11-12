@@ -263,7 +263,7 @@ function setupNewStaff() {
     // 담당자 처리
     for (let i = 1; i < staffData.length; i++) {
       const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
-      const email = staffData[i][CONFIG.STAFF_COLS.EMAIL - 1];
+      const email = (staffData[i][CONFIG.STAFF_COLS.EMAIL - 1] || '').toString().trim();
       const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
       const existingCalId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
 
@@ -330,7 +330,7 @@ function setupNewStaff() {
             }
           }, personalCalId);
           Logger.log('✅ 본인 캘린더 owner 권한: ' + email);
-          Utilities.sleep(100);  // API 제한 방지
+          Utilities.sleep(200);  // API 제한 방지
         } catch(shareError) {
           // "Cannot change your own access level"은 정상 (무시)
           if (!shareError.message.includes('Cannot change')) {
@@ -353,7 +353,7 @@ function setupNewStaff() {
               }, calId);
               calendarShared++;
               Logger.log(`✅ 기존 캘린더 공유 (${email}에게): ${calId}`);
-              Utilities.sleep(100);  // API 제한 방지
+              Utilities.sleep(200);  // API 제한 방지
             } catch(shareErr) {
               // Rate Limit 등은 로그만 출력
               Logger.log(`⚠️ 기존 캘린더 공유 실패: ${shareErr.message}`);
@@ -384,7 +384,7 @@ function setupNewStaff() {
                 }
               }, personalCalId);
               Logger.log(`✅ 새 캘린더 공유 (${cleanEmail}에게): ${name}`);
-              Utilities.sleep(100);  // API 제한 방지
+              Utilities.sleep(200);  // API 제한 방지
             } catch(shareErr) {
               // "Cannot change your own access level"은 무시
               if (!shareErr.message.includes('Cannot change')) {
