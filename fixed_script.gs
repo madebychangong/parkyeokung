@@ -972,6 +972,19 @@ function onEdit(e) {
 
   if (row === 1) return;
 
+  // 일정관리: C열(차수) 또는 D열(일정명) 수정 시 → 결제창관리 실시간 업데이트
+  if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE &&
+      (col === CONFIG.SCHEDULE_COLS.ROUND || col === CONFIG.SCHEDULE_COLS.TITLE)) {
+
+    const eventId = sheet.getRange(row, CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID).getValue();
+    if (eventId) {
+      const rowData = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+      updatePaymentSheetByEventId(eventId, rowData);
+      Logger.log(`✅ onEdit: 결제창관리 업데이트 (${row}행)`);
+    }
+    return;
+  }
+
   if (sheetName === CONFIG.SHEET_NAMES.SCHEDULE && col === CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID) {
     markEventIdModified(sheet, row, col);
     return;
