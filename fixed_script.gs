@@ -53,6 +53,8 @@ function onOpen() {
     .addItem('🔄 드롭다운 새로고침', 'updateStaffDropdown')
     .addItem('🔄 캘린더 동기화', 'syncAll')
     .addSeparator()
+    .addItem('🔧 EventID 동기화 (1회성)', 'syncEventIdsByTitle')
+    .addSeparator()
     .addItem('📘 사용 설명서', 'showHelp')
     .addItem('⚙️ 시스템 점검', 'systemCheck')
     .addToUi();
@@ -856,6 +858,71 @@ function addToPaymentSheetIfNotExists(rowData, paymentEventIdSet) {
   } catch(e) {
     Logger.log('❌ 결제창 중복 확인 오류: ' + e.message);
   }
+}
+
+// ===== 1회성: 일정관리 eventId를 결제창관리에 동기화 (제목 기준 매칭) =====
+function syncEventIdsByTitle() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '🔧 EventID 동기화',
+    '차수+일정명이 같은 행을 찾아서\n일정관리의 캘린더ID를 결제창관리에 덮어씁니다.\n\n계속하시겠습니까?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const scheduleSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.SCHEDULE);
+  const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
+
+  const scheduleData = scheduleSheet.getDataRange().getValues();
+  const paymentData = paymentSheet.getDataRange().getValues();
+
+  let fixed = 0;
+  let notFound = 0;
+
+  // 일정관리의 각 행 처리
+  for (let i = 1; i < scheduleData.length; i++) {
+    const scheduleEventId = scheduleData[i][CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
+    const scheduleRound = scheduleData[i][CONFIG.SCHEDULE_COLS.ROUND - 1];
+    const scheduleTitle = scheduleData[i][CONFIG.SCHEDULE_COLS.TITLE - 1];
+
+    if (!scheduleEventId || !scheduleTitle) continue;
+
+    // 결제창관리 제목 형식: "일정명 [차수]" 또는 "일정명"
+    const combinedTitle = scheduleRound ? `${scheduleTitle} [${scheduleRound}]` : scheduleTitle;
+
+    // 결제창관리에서 같은 제목 찾기
+    let found = false;
+    for (let j = 1; j < paymentData.length; j++) {
+      const paymentTitle = paymentData[j][CONFIG.PAYMENT_COLS.TITLE - 1];
+      const paymentEventId = paymentData[j][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+
+      // 제목이 같고 eventId가 다르면 수정
+      if (paymentTitle === combinedTitle) {
+        found = true;
+        if (paymentEventId !== scheduleEventId) {
+          paymentSheet.getRange(j + 1, CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID).setValue(scheduleEventId);
+          fixed++;
+          Logger.log(`✅ 수정: "${combinedTitle}" - ${paymentEventId} → ${scheduleEventId}`);
+        }
+        break;
+      }
+    }
+
+    if (!found) {
+      notFound++;
+      Logger.log(`⚠️ 결제창관리에서 못 찾음: "${combinedTitle}"`);
+    }
+  }
+
+  ui.alert(
+    '✅ 완료',
+    `EventID 동기화 완료!\n\n✅ 수정: ${fixed}개\n⚠️ 못 찾음: ${notFound}개`,
+    ui.ButtonSet.OK
+  );
+  Logger.log(`\n총 ${fixed}개 수정 완료, ${notFound}개 못 찾음`);
 }
 
 // ===== 담당자 드롭다운 새로고침 =====
