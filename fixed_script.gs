@@ -49,6 +49,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📅 메뉴')
     .addItem('👥 담당자 등록 완료', 'setupNewStaff')
+    .addItem('🔄 캘린더 공유 재시도', 'resyncCalendarSharing')
     .addSeparator()
     .addItem('🔄 드롭다운 새로고침', 'updateStaffDropdown')
     .addItem('🔄 캘린더 동기화', 'syncAll')
@@ -330,7 +331,7 @@ function setupNewStaff() {
             }
           }, personalCalId);
           Logger.log('✅ 본인 캘린더 owner 권한: ' + email);
-          Utilities.sleep(200);  // API 제한 방지
+          Utilities.sleep(300);  // API 제한 방지
         } catch(shareError) {
           // "Cannot change your own access level"은 정상 (무시)
           if (!shareError.message.includes('Cannot change')) {
@@ -353,7 +354,7 @@ function setupNewStaff() {
               }, calId);
               calendarShared++;
               Logger.log(`✅ 기존 캘린더 공유 (${email}에게): ${calId}`);
-              Utilities.sleep(200);  // API 제한 방지
+              Utilities.sleep(300);  // API 제한 방지
             } catch(shareErr) {
               // Rate Limit 등은 로그만 출력
               Logger.log(`⚠️ 기존 캘린더 공유 실패: ${shareErr.message}`);
@@ -384,7 +385,7 @@ function setupNewStaff() {
                 }
               }, personalCalId);
               Logger.log(`✅ 새 캘린더 공유 (${cleanEmail}에게): ${name}`);
-              Utilities.sleep(200);  // API 제한 방지
+              Utilities.sleep(300);  // API 제한 방지
             } catch(shareErr) {
               // "Cannot change your own access level"은 무시
               if (!shareErr.message.includes('Cannot change')) {
@@ -420,6 +421,179 @@ function setupNewStaff() {
   } catch(e) {
     ui.alert('❌ 오류', '담당자 등록 중 오류 발생: ' + e.message, ui.ButtonSet.OK);
     Logger.log('❌ 담당자 등록 오류: ' + e.message);
+  }
+}
+
+// ===== 캘린더 공유 재시도 (실패한 공유만 다시 시도) =====
+function resyncCalendarSharing() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '🔄 캘린더 공유 재시도',
+    '모든 담당자의 캘린더를 서로 공유합니다.\n\n이미 공유된 사람은 건너뛰고,\n공유가 안 된 사람만 다시 시도합니다.\n\n계속하시겠습니까?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const staffSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.STAFF);
+
+    if (!staffSheet) {
+      ui.alert('❌ 오류', '담당자 시트를 찾을 수 없습니다.', ui.ButtonSet.OK);
+      return;
+    }
+
+    const staffData = staffSheet.getDataRange().getValues();
+
+    // 활성 담당자 목록 (이메일, 이름, 캘린더ID)
+    const activeStaff = [];
+    for (let i = 1; i < staffData.length; i++) {
+      const name = staffData[i][CONFIG.STAFF_COLS.NAME - 1];
+      const email = (staffData[i][CONFIG.STAFF_COLS.EMAIL - 1] || '').toString().trim();
+      const isActive = staffData[i][CONFIG.STAFF_COLS.ACTIVE - 1];
+      const calId = staffData[i][CONFIG.STAFF_COLS.PERSONAL_CAL - 1];
+
+      if (name && email && isActive === true && calId) {
+        activeStaff.push({ name, email, calId });
+      }
+    }
+
+    if (activeStaff.length === 0) {
+      ui.alert('⚠️ 알림', '활성 담당자가 없습니다.', ui.ButtonSet.OK);
+      return;
+    }
+
+    Logger.log(`🔄 캘린더 공유 재시도 시작 (담당자 ${activeStaff.length}명)`);
+
+    let totalChecked = 0;
+    let alreadyShared = 0;
+    let newlyShared = 0;
+    let failed = 0;
+    const failedList = [];
+
+    // 각 담당자의 캘린더를 다른 모든 담당자에게 공유
+    for (let i = 0; i < activeStaff.length; i++) {
+      const owner = activeStaff[i];
+
+      Logger.log(`\n📅 [${owner.name}]의 캘린더 공유 확인 중...`);
+
+      try {
+        // 현재 이 캘린더에 공유된 사람들의 이메일 목록
+        const aclList = Calendar.Acl.list(owner.calId);
+        const sharedEmails = new Set();
+
+        if (aclList.items) {
+          aclList.items.forEach(acl => {
+            if (acl.scope && acl.scope.type === 'user' && acl.scope.value) {
+              sharedEmails.add(acl.scope.value.toLowerCase());
+            }
+          });
+        }
+
+        // 다른 모든 담당자에게 공유되어 있는지 확인
+        for (let j = 0; j < activeStaff.length; j++) {
+          if (i === j) continue;  // 본인 제외
+
+          const target = activeStaff[j];
+          totalChecked++;
+
+          if (sharedEmails.has(target.email.toLowerCase())) {
+            // 이미 공유됨
+            alreadyShared++;
+            Logger.log(`  ⏭️ 이미 공유됨: ${target.name} (${target.email})`);
+          } else {
+            // 공유 안 됨 → 공유 시도
+            try {
+              Calendar.Acl.insert({
+                role: 'owner',
+                scope: {
+                  type: 'user',
+                  value: target.email
+                }
+              }, owner.calId);
+
+              newlyShared++;
+              Logger.log(`  ✅ 공유 완료: ${target.name} (${target.email})`);
+              Utilities.sleep(300);  // Rate Limit 방지
+
+            } catch(shareErr) {
+              failed++;
+              const errorMsg = `${owner.name} → ${target.name}: ${shareErr.message}`;
+              failedList.push(errorMsg);
+              Logger.log(`  ❌ 공유 실패: ${errorMsg}`);
+              Utilities.sleep(300);  // 실패해도 대기
+            }
+          }
+        }
+
+      } catch(listErr) {
+        Logger.log(`  ⚠️ ACL 목록 조회 실패 (${owner.name}): ${listErr.message}`);
+        // ACL 목록을 못 가져온 경우, 모든 담당자에게 공유 시도
+        for (let j = 0; j < activeStaff.length; j++) {
+          if (i === j) continue;
+
+          const target = activeStaff[j];
+          totalChecked++;
+
+          try {
+            Calendar.Acl.insert({
+              role: 'owner',
+              scope: {
+                type: 'user',
+                value: target.email
+              }
+            }, owner.calId);
+
+            newlyShared++;
+            Logger.log(`  ✅ 공유 완료: ${target.name} (${target.email})`);
+            Utilities.sleep(300);
+
+          } catch(shareErr) {
+            // "User already has access" 에러는 카운트 안 함
+            if (shareErr.message.includes('already has access')) {
+              alreadyShared++;
+              Logger.log(`  ⏭️ 이미 공유됨: ${target.name} (${target.email})`);
+            } else {
+              failed++;
+              const errorMsg = `${owner.name} → ${target.name}: ${shareErr.message}`;
+              failedList.push(errorMsg);
+              Logger.log(`  ❌ 공유 실패: ${errorMsg}`);
+            }
+            Utilities.sleep(300);
+          }
+        }
+      }
+    }
+
+    // 결과 메시지
+    let message = '✅ 캘린더 공유 재시도 완료!\n\n';
+    message += `【처리 결과】\n`;
+    message += `• 확인한 공유: ${totalChecked}건\n`;
+    message += `• 이미 공유됨: ${alreadyShared}건\n`;
+    message += `• 새로 공유됨: ${newlyShared}건\n`;
+
+    if (failed > 0) {
+      message += `• 실패: ${failed}건\n\n`;
+      message += `【실패 목록】\n`;
+      failedList.slice(0, 10).forEach(msg => {
+        message += `⚠️ ${msg}\n`;
+      });
+      if (failedList.length > 10) {
+        message += `\n... 외 ${failedList.length - 10}건 (로그 확인)\n`;
+      }
+    }
+
+    message += '\n📧 새로 공유된 담당자는 이메일에서 초대를 수락해주세요!';
+
+    ui.alert('✅ 완료', message, ui.ButtonSet.OK);
+    Logger.log('✅ 캘린더 공유 재시도 완료');
+
+  } catch(e) {
+    ui.alert('❌ 오류', '캘린더 공유 재시도 중 오류 발생: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ 캘린더 공유 재시도 오류: ' + e.message);
   }
 }
 
