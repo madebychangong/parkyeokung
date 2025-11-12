@@ -567,10 +567,13 @@ function resyncCalendarSharing() {
           Utilities.sleep(300);
 
         } catch(err) {
-          failed++;
-          const errorMsg = `${targetStaff.name} → ${otherStaff.name}: ${err.message}`;
-          failedList.push(errorMsg);
-          Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          // "Cannot change your own access level"은 정상 (무시)
+          if (!err.message.includes('Cannot change')) {
+            failed++;
+            const errorMsg = `${targetStaff.name} → ${otherStaff.name}: ${err.message}`;
+            failedList.push(errorMsg);
+            Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          }
           Utilities.sleep(300);
         }
       }
@@ -622,10 +625,13 @@ function resyncCalendarSharing() {
           Utilities.sleep(300);
 
         } catch(err) {
-          failed++;
-          const errorMsg = `${otherStaff.name} → ${targetStaff.name}: ${err.message}`;
-          failedList.push(errorMsg);
-          Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          // "Cannot change your own access level"은 정상 (무시)
+          if (!err.message.includes('Cannot change')) {
+            failed++;
+            const errorMsg = `${otherStaff.name} → ${targetStaff.name}: ${err.message}`;
+            failedList.push(errorMsg);
+            Logger.log(`    ╠═ ❌ 실패: ${otherStaff.name} (${err.message})`);
+          }
           Utilities.sleep(300);
         }
       }
