@@ -712,6 +712,46 @@ function findScheduleRowByEventId(eventId) {
 }
 
 // ===== 결제창에서 행 삭제 (이벤트ID로 매칭) =====
+function updatePaymentSheetByEventId(eventId, rowData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const paymentSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.PAYMENT);
+    const paymentData = paymentSheet.getDataRange().getValues();
+
+    for (let i = 1; i < paymentData.length; i++) {
+      const rowEventId = paymentData[i][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
+
+      if (rowEventId === eventId) {
+        const startDate = rowData[CONFIG.SCHEDULE_COLS.START_DATE - 1];
+        const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
+        const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
+        const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
+        const combinedTitle = round ? `${title} [${round}]` : title;
+        const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+
+        const dateRange = Utilities.formatDate(new Date(startDate), Session.getScriptTimeZone(), 'yyyy-MM-dd') +
+                          ' ~ ' +
+                          Utilities.formatDate(new Date(endDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+        const paymentRow = i + 1;
+        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.DATE).setValue(dateRange);
+        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.TITLE).setValue(combinedTitle);
+        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.STAFF).setValue(staff);
+
+        Logger.log(`✅ 결제창관리 업데이트 완료: ${paymentRow}행`);
+        return true;
+      }
+    }
+
+    Logger.log('⚠️ 결제창에서 해당 행을 찾지 못함 (이벤트ID: ' + eventId + ')');
+    return false;
+
+  } catch(e) {
+    Logger.log('❌ 결제창 업데이트 오류: ' + e.message);
+    return false;
+  }
+}
+
 function deleteFromPaymentSheetByEventId(eventId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1174,6 +1214,9 @@ function syncAll() {
             addToPaymentSheetIfNotExists(updatedRowData, paymentEventIdSet);
 
             Logger.log(`✅ ${rowNumber}행: 자동 복구 완료 (새 eventId: ${newEventId})`);
+          } else {
+            // 업데이트 성공 시 결제창관리도 업데이트
+            updatePaymentSheetByEventId(personalEventId, rowData);
           }
         }
 
