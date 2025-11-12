@@ -48,12 +48,10 @@ const CONFIG = {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📅 메뉴')
-    .addItem('👥 담당자 등록 완료', 'setupNewStaff')  // ← 새로운 메뉴
+    .addItem('👥 담당자 등록 완료', 'setupNewStaff')
     .addSeparator()
     .addItem('🔄 드롭다운 새로고침', 'updateStaffDropdown')
     .addItem('🔄 캘린더 동기화', 'syncAll')
-    .addSeparator()
-    .addItem('🔧 EventID 동기화 (1회성)', 'syncEventIdsByTitle')
     .addSeparator()
     .addItem('📘 사용 설명서', 'showHelp')
     .addItem('⚙️ 시스템 점검', 'systemCheck')
