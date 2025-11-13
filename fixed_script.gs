@@ -1678,7 +1678,8 @@ function updateStatistics() {
   let startCol = 1;
 
   months.forEach(({ ym, label }) => {
-    const title = `📅 ${label} 일정 목록`;
+    const [year, month] = ym.split('-');
+    const title = `📅 ${year}년 ${parseInt(month)}월 통계`;
 
     stats.getRange(1, startCol, 1, header.length)
       .merge()
@@ -1701,7 +1702,11 @@ function updateStatistics() {
       .setBorder(true, true, true, true, true, true);
 
     const items = monthlyMap.get(ym)?.sort((a, b) => new Date(a.dateRange) - new Date(b.dateRange)) || [];
-    let rows = items.map(it => [it.dateRange, it.influencer, it.staff]);
+    // 날짜에서 년도 제거 (2025-11-27 ~ 2025-11-30 → 11-27 ~ 11-30)
+    let rows = items.map(it => {
+      const formattedDate = it.dateRange.replace(/\d{4}-(\d{2}-\d{2})\s*~\s*\d{4}-(\d{2}-\d{2})/, '$1 ~ $2');
+      return [formattedDate, it.influencer, it.staff];
+    });
     if (rows.length === 0) rows = [["", "", ""]];
 
     stats.getRange(3, startCol, rows.length, header.length)
@@ -1738,7 +1743,11 @@ function updateStatistics() {
       .setBorder(true, true, true, true, true, true);
 
     const items = staffMap.get(label)?.sort((a, b) => new Date(a.dateRange) - new Date(b.dateRange)) || [];
-    let rows = items.map(it => [it.dateRange, it.influencer, label]);
+    // 날짜에서 년도 제거 (2025-11-27 ~ 2025-11-30 → 11-27 ~ 11-30)
+    let rows = items.map(it => {
+      const formattedDate = it.dateRange.replace(/\d{4}-(\d{2}-\d{2})\s*~\s*\d{4}-(\d{2}-\d{2})/, '$1 ~ $2');
+      return [formattedDate, it.influencer, label];
+    });
     if (rows.length === 0) rows = [["", "", ""]];
 
     stats.getRange(3, startCol, rows.length, header.length)
@@ -1782,9 +1791,10 @@ function updateStatistics() {
 
       let startRow = 1;
 
+      const [year, month] = ym.split('-');
       backup.getRange(startRow, 1, 1, header.length)
         .merge()
-        .setValue(`📅 ${ym} 일정 백업`)
+        .setValue(`📅 ${year}년 ${parseInt(month)}월 백업`)
         .setFontWeight("bold")
         .setBackground("#c7e1f5");
       startRow++;
@@ -1795,11 +1805,16 @@ function updateStatistics() {
         .setBackground("#d9e1f2");
       startRow++;
 
-      const monthRows = rows.map(r => [
-        r[CONFIG.PAYMENT_COLS.DATE - 1],
-        r[CONFIG.PAYMENT_COLS.TITLE - 1],
-        r[CONFIG.PAYMENT_COLS.STAFF - 1]
-      ]);
+      const monthRows = rows.map(r => {
+        const dateRange = r[CONFIG.PAYMENT_COLS.DATE - 1];
+        // 날짜에서 년도 제거 (2025-11-27 ~ 2025-11-30 → 11-27 ~ 11-30)
+        const formattedDate = dateRange.replace(/\d{4}-(\d{2}-\d{2})\s*~\s*\d{4}-(\d{2}-\d{2})/, '$1 ~ $2');
+        return [
+          formattedDate,
+          r[CONFIG.PAYMENT_COLS.TITLE - 1],
+          r[CONFIG.PAYMENT_COLS.STAFF - 1]
+        ];
+      });
       backup.getRange(startRow, 1, monthRows.length, header.length)
         .setValues(monthRows)
         .setBorder(true, true, true, true, true, true);
@@ -1819,11 +1834,16 @@ function updateStatistics() {
           .setBackground("#f9d5b2");
         startRow++;
 
-        const staffRows = staffs[staff].map(r => [
-          r[CONFIG.PAYMENT_COLS.DATE - 1],
-          r[CONFIG.PAYMENT_COLS.TITLE - 1],
-          staff
-        ]);
+        const staffRows = staffs[staff].map(r => {
+          const dateRange = r[CONFIG.PAYMENT_COLS.DATE - 1];
+          // 날짜에서 년도 제거 (2025-11-27 ~ 2025-11-30 → 11-27 ~ 11-30)
+          const formattedDate = dateRange.replace(/\d{4}-(\d{2}-\d{2})\s*~\s*\d{4}-(\d{2}-\d{2})/, '$1 ~ $2');
+          return [
+            formattedDate,
+            r[CONFIG.PAYMENT_COLS.TITLE - 1],
+            staff
+          ];
+        });
         backup.getRange(startRow, 1, staffRows.length, header.length)
           .setValues(staffRows)
           .setBorder(true, true, true, true, true, true);
