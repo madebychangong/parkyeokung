@@ -1393,12 +1393,6 @@ function syncAll() {
         continue;
       }
 
-      // K열 일정취소 체크되어 있으면 건너뛰기
-      if (cancelled === true || cancelled === 'TRUE') {
-        cancelledCount++;
-        continue;
-      }
-
       // H열 상태가 "완료"이면 건너뛰기 (처리 안 함)
       if (status === '완료') {
         completedCount++;
