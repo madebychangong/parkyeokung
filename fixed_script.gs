@@ -29,11 +29,9 @@ const CONFIG = {
     TRANSFER: 1,        // A열 - 결제창 전달
     COMPLETE: 2,        // B열 - 결제완료
     DATE: 3,            // C열 - 날짜
-    TITLE: 4,           // D열 - 일정명
-    ROUND: 5,           // E열 - 차수
-    PERCENT: 6,         // F열 - 퍼센트
-    STAFF: 7,           // G열 - 담당자
-    PERSONAL_EVENT_ID: 8  // H열 - 개인 캘린더 이벤트ID
+    TITLE: 4,           // D열 - 일정명 (차수+퍼센트 포함)
+    STAFF: 5,           // E열 - 담당자
+    PERSONAL_EVENT_ID: 6  // F열 - 개인 캘린더 이벤트ID
   },
 
   STAFF_COLS: {
@@ -999,15 +997,18 @@ function updatePaymentSheetByEventId(eventId, rowData) {
         const percent = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
         const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
 
+        // 제목 형식: "일정명 [차수] [퍼센트]"
+        let combinedTitle = title;
+        if (round) combinedTitle += ` [${round}]`;
+        if (percent) combinedTitle += ` [${percent}]`;
+
         const dateRange = Utilities.formatDate(new Date(startDate), Session.getScriptTimeZone(), 'yyyy-MM-dd') +
                           ' ~ ' +
                           Utilities.formatDate(new Date(endDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
         const paymentRow = i + 1;
         paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.DATE).setValue(dateRange);
-        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.TITLE).setValue(title);
-        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.ROUND).setValue(round || '');
-        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.PERCENT).setValue(percent || '');
+        paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.TITLE).setValue(combinedTitle);
         paymentSheet.getRange(paymentRow, CONFIG.PAYMENT_COLS.STAFF).setValue(staff);
 
         Logger.log(`✅ 결제창관리 업데이트 완료: ${paymentRow}행`);
@@ -1068,6 +1069,11 @@ function addToPaymentSheet(rowData) {
       return;
     }
 
+    // 제목 형식: "일정명 [차수] [퍼센트]"
+    let combinedTitle = title;
+    if (round) combinedTitle += ` [${round}]`;
+    if (percent) combinedTitle += ` [${percent}]`;
+
     const dateRange = Utilities.formatDate(new Date(startDate), Session.getScriptTimeZone(), 'yyyy-MM-dd') +
                       ' ~ ' +
                       Utilities.formatDate(new Date(endDate), Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -1078,9 +1084,7 @@ function addToPaymentSheet(rowData) {
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.TRANSFER).insertCheckboxes();
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.COMPLETE).insertCheckboxes();
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.DATE).setValue(dateRange);
-    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.TITLE).setValue(title);
-    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.ROUND).setValue(round || '');
-    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.PERCENT).setValue(percent || '');
+    paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.TITLE).setValue(combinedTitle);
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.STAFF).setValue(staff);
     paymentSheet.getRange(newRow, CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID).setValue(eventId);
 
@@ -1138,7 +1142,7 @@ function syncEventIdsByTitle() {
 
   const response = ui.alert(
     '🔧 EventID 동기화',
-    '일정명+차수+퍼센트가 같은 행을 찾아서\n일정관리의 캘린더ID를 결제창관리에 덮어씁니다.\n\n계속하시겠습니까?',
+    '일정명 [차수] [퍼센트] 제목이 같은 행을 찾아서\n일정관리의 캘린더ID를 결제창관리에 덮어씁니다.\n\n계속하시겠습니까?',
     ui.ButtonSet.YES_NO
   );
 
@@ -1163,23 +1167,24 @@ function syncEventIdsByTitle() {
 
     if (!scheduleEventId || !scheduleTitle) continue;
 
-    // 결제창관리에서 같은 제목+차수+퍼센트 찾기
+    // 결제창관리 제목 형식: "일정명 [차수] [퍼센트]"
+    let combinedTitle = scheduleTitle;
+    if (scheduleRound) combinedTitle += ` [${scheduleRound}]`;
+    if (schedulePercent) combinedTitle += ` [${schedulePercent}]`;
+
+    // 결제창관리에서 같은 제목 찾기
     let found = false;
     for (let j = 1; j < paymentData.length; j++) {
       const paymentTitle = paymentData[j][CONFIG.PAYMENT_COLS.TITLE - 1];
-      const paymentRound = paymentData[j][CONFIG.PAYMENT_COLS.ROUND - 1];
-      const paymentPercent = paymentData[j][CONFIG.PAYMENT_COLS.PERCENT - 1];
       const paymentEventId = paymentData[j][CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID - 1];
 
-      // 제목, 차수, 퍼센트가 모두 같으면 매칭
-      if (paymentTitle === scheduleTitle &&
-          paymentRound === scheduleRound &&
-          paymentPercent === schedulePercent) {
+      // 제목이 같으면 매칭
+      if (paymentTitle === combinedTitle) {
         found = true;
         if (paymentEventId !== scheduleEventId) {
           paymentSheet.getRange(j + 1, CONFIG.PAYMENT_COLS.PERSONAL_EVENT_ID).setValue(scheduleEventId);
           fixed++;
-          Logger.log(`✅ 수정: "${scheduleTitle}" (${scheduleRound || ''} ${schedulePercent || ''}) - ${paymentEventId} → ${scheduleEventId}`);
+          Logger.log(`✅ 수정: "${combinedTitle}" - ${paymentEventId} → ${scheduleEventId}`);
         }
         break;
       }
@@ -1187,7 +1192,7 @@ function syncEventIdsByTitle() {
 
     if (!found) {
       notFound++;
-      Logger.log(`⚠️ 결제창관리에서 못 찾음: "${scheduleTitle}" (${scheduleRound || ''} ${schedulePercent || ''})`);
+      Logger.log(`⚠️ 결제창관리에서 못 찾음: "${combinedTitle}"`);
     }
   }
 
