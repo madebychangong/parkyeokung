@@ -13,15 +13,16 @@ const CONFIG = {
     END_DATE: 2,        // B열 - 종료일
     ROUND: 3,           // C열 - 차수 (1차, 2차 등)
     TITLE: 4,           // D열 - 일정명
-    STAFF: 5,           // E열 - 담당자
-    CONTENT: 6,         // F열 - 내용
-    PAYMENT_DONE: 7,    // G열 - 결제완료 (읽기전용)
-    STATUS: 8,          // H열 - 상태 (신규/수정/완료)
-    // I열 - 비고란
-    STAFF_CHANGED: 10,  // J열 - 담당자변경 체크
-    CANCELLED: 11,      // K열 - 일정취소
-    PERSONAL_EVENT_ID: 12,  // L열 - 개인 캘린더
-    OLD_STAFF: 13       // M열 - (사용안함: 결제창관리에서 이전담당자 찾음)
+    PERCENT: 5,         // E열 - 퍼센트 (17% 등)
+    STAFF: 6,           // F열 - 담당자
+    CONTENT: 7,         // G열 - 내용
+    PAYMENT_DONE: 8,    // H열 - 결제완료 (읽기전용)
+    STATUS: 9,          // I열 - 상태 (신규/수정/완료)
+    // J열 - 비고란
+    STAFF_CHANGED: 11,  // K열 - 담당자변경 체크
+    CANCELLED: 12,      // L열 - 일정취소
+    PERSONAL_EVENT_ID: 13,  // M열 - 개인 캘린더
+    OLD_STAFF: 14       // N열 - (사용안함: 결제창관리에서 이전담당자 찾음)
   },
 
   PAYMENT_COLS: {
@@ -993,7 +994,10 @@ function updatePaymentSheetByEventId(eventId, rowData) {
         const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
         const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
         const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-        const combinedTitle = round ? `${title} [${round}]` : title;
+        const percent = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
+        const combinedTitle = round ?
+          `${title} [${round}${percent ? ' ' + percent : ''}]` :
+          title;
         const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
 
         const dateRange = Utilities.formatDate(new Date(startDate), Session.getScriptTimeZone(), 'yyyy-MM-dd') +
@@ -1054,7 +1058,10 @@ function addToPaymentSheet(rowData) {
     const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
     const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
     const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-    const combinedTitle = round ? `${title} [${round}]` : title;
+    const percent = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
+    const combinedTitle = round ?
+      `${title} [${round}${percent ? ' ' + percent : ''}]` :
+      title;
     const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
     const eventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
 
@@ -1152,11 +1159,14 @@ function syncEventIdsByTitle() {
     const scheduleEventId = scheduleData[i][CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
     const scheduleRound = scheduleData[i][CONFIG.SCHEDULE_COLS.ROUND - 1];
     const scheduleTitle = scheduleData[i][CONFIG.SCHEDULE_COLS.TITLE - 1];
+    const schedulePercent = scheduleData[i][CONFIG.SCHEDULE_COLS.PERCENT - 1];
 
     if (!scheduleEventId || !scheduleTitle) continue;
 
-    // 결제창관리 제목 형식: "일정명 [차수]" 또는 "일정명"
-    const combinedTitle = scheduleRound ? `${scheduleTitle} [${scheduleRound}]` : scheduleTitle;
+    // 결제창관리 제목 형식: "일정명 [차수 퍼센트]" 또는 "일정명"
+    const combinedTitle = scheduleRound ?
+      `${scheduleTitle} [${scheduleRound}${schedulePercent ? ' ' + schedulePercent : ''}]` :
+      scheduleTitle;
 
     // 결제창관리에서 같은 제목 찾기
     let found = false;
