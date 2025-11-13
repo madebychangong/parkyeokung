@@ -994,8 +994,20 @@ function updatePaymentSheetByEventId(eventId, rowData) {
         const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
         const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
         const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-        const percent = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
+        const percentRaw = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
         const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
+
+        // 퍼센트 포맷 처리 (0.15 → "15%", "15%" → "15%")
+        let percent = '';
+        if (percentRaw) {
+          if (typeof percentRaw === 'number') {
+            // 숫자면 퍼센트로 변환 (0.15 → "15%")
+            percent = Math.round(percentRaw * 100) + '%';
+          } else {
+            // 이미 문자열이면 그대로
+            percent = percentRaw.toString();
+          }
+        }
 
         // 제목 형식: "일정명 [차수] [퍼센트]"
         let combinedTitle = title;
@@ -1060,13 +1072,25 @@ function addToPaymentSheet(rowData) {
     const endDate = rowData[CONFIG.SCHEDULE_COLS.END_DATE - 1];
     const round = rowData[CONFIG.SCHEDULE_COLS.ROUND - 1];
     const title = rowData[CONFIG.SCHEDULE_COLS.TITLE - 1];
-    const percent = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
+    const percentRaw = rowData[CONFIG.SCHEDULE_COLS.PERCENT - 1];
     const staff = rowData[CONFIG.SCHEDULE_COLS.STAFF - 1];
     const eventId = rowData[CONFIG.SCHEDULE_COLS.PERSONAL_EVENT_ID - 1];
 
     if (!startDate || !endDate || !title || !staff || !eventId) {
       Logger.log('⚠️ 결제창 추가 실패: 필수 값 누락 (이벤트ID 필요)');
       return;
+    }
+
+    // 퍼센트 포맷 처리 (0.15 → "15%", "15%" → "15%")
+    let percent = '';
+    if (percentRaw) {
+      if (typeof percentRaw === 'number') {
+        // 숫자면 퍼센트로 변환 (0.15 → "15%")
+        percent = Math.round(percentRaw * 100) + '%';
+      } else {
+        // 이미 문자열이면 그대로
+        percent = percentRaw.toString();
+      }
     }
 
     // 제목 형식: "일정명 [차수] [퍼센트]"
