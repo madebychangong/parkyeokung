@@ -1679,7 +1679,8 @@ function updateStatistics() {
 
   months.forEach(({ ym, label }) => {
     const [year, month] = ym.split('-');
-    const title = `📅 ${year}년 ${parseInt(month)}월 통계`;
+    const shortYear = year.slice(2); // 2025 → 25
+    const title = `📅 ${shortYear}년 ${parseInt(month)}월 일정 목록`;
 
     stats.getRange(1, startCol, 1, header.length)
       .merge()
@@ -1792,9 +1793,10 @@ function updateStatistics() {
       let startRow = 1;
 
       const [year, month] = ym.split('-');
+      const shortYear = year.slice(2); // 2025 → 25
       backup.getRange(startRow, 1, 1, header.length)
         .merge()
-        .setValue(`📅 ${year}년 ${parseInt(month)}월 백업`)
+        .setValue(`📅 ${shortYear}년 ${parseInt(month)}월 백업`)
         .setFontWeight("bold")
         .setBackground("#c7e1f5");
       startRow++;
